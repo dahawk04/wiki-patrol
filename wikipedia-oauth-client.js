@@ -9,113 +9,6 @@ class WikipediaOAuthClient {
         this.sessionId = localStorage.getItem('wikipedia_oauth_session');
         console.log('Existing session ID from localStorage:', this.sessionId);
         this.user = null;
-        this.authWindow = null;
-        
-        // Set up message listener for OAuth popup callbacks
-        this.setupMessageListener();
-        
-        // Check for OAuth callback parameters
-        this.handleOAuthCallback();
-    }
-    
-    /**
-     * Set up listener for postMessage events from OAuth popup
-     */
-    setupMessageListener() {
-        window.addEventListener('message', (event) => {
-            console.log('Received postMessage:', event);
-            
-            // Verify the message is from our expected origin
-            const expectedOrigin = this.backendUrl.replace(/\/api$/, '');
-            if (!event.origin.startsWith(expectedOrigin) && !event.origin.startsWith(window.location.origin)) {
-                console.log('Ignoring message from unexpected origin:', event.origin);
-                return;
-            }
-            
-            // Handle OAuth callback messages
-            if (event.data && event.data.type === 'oauth_callback') {
-                console.log('Processing OAuth callback message:', event.data);
-                
-                if (event.data.success) {
-                    // Store session ID
-                    this.sessionId = event.data.sessionId;
-                    localStorage.setItem('wikipedia_oauth_session', this.sessionId);
-                    localStorage.removeItem('wikipedia_oauth_session_pending');
-                    
-                    // Close the popup if it's still open
-                    if (this.authWindow && !this.authWindow.closed) {
-                        this.authWindow.close();
-                    }
-                    
-                    // Verify the session
-                    this.verifySession().then(user => {
-                        if (user) {
-                            console.log('Session verified successfully for user:', user);
-                            this.onLoginSuccess(user);
-                        } else {
-                            console.error('Session verification returned no user');
-                            this.onLoginError('Failed to verify session');
-                        }
-                    }).catch(error => {
-                        console.error('Session verification failed:', error);
-                        this.onLoginError(error.message);
-                    });
-                } else {
-                    // Handle error
-                    console.error('OAuth callback error:', event.data.error);
-                    this.onLoginError(event.data.error || 'OAuth authorization failed');
-                    
-                    // Close the popup if it's still open
-                    if (this.authWindow && !this.authWindow.closed) {
-                        this.authWindow.close();
-                    }
-                }
-            }
-        });
-    }
-    
-    /**
-     * Handle OAuth callback parameters from URL
-     */
-    handleOAuthCallback() {
-        console.log('Handling OAuth callback, checking URL parameters...');
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        if (urlParams.has('oauth_success') && urlParams.has('session')) {
-            console.log('OAuth callback successful, processing session...');
-            this.sessionId = urlParams.get('session');
-            localStorage.setItem('wikipedia_oauth_session', this.sessionId);
-            console.log('Stored new session ID:', this.sessionId);
-            
-            // Clean up URL
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, newUrl);
-            console.log('Cleaned up URL parameters');
-            
-            // Verify the session
-            console.log('Verifying session...');
-            this.verifySession().then(user => {
-                if (user) {
-                    console.log('Session verified successfully for user:', user);
-                    this.onLoginSuccess(user);
-                } else {
-                    console.error('Session verification returned no user');
-                }
-            }).catch(error => {
-                console.error('Session verification failed:', error);
-            });
-        } else if (urlParams.has('oauth_error')) {
-            const error = urlParams.get('oauth_error');
-            console.error('OAuth error from callback:', error);
-            this.onLoginError(error);
-            
-            // Clean up URL
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, document.title, newUrl);
-            console.log('Cleaned up error URL parameters');
-        } else {
-            console.log('No OAuth callback parameters found in URL');
-        }
     }
     
     /**
@@ -154,23 +47,64 @@ class WikipediaOAuthClient {
                     localStorage.setItem('wikipedia_oauth_session', data.sessionId);
                     
                     // Open authorization URL in new window
-                    this.authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
-                    
-                    // Monitor if the popup is closed manually
-                    const checkClosed = setInterval(() => {
-                        if (this.authWindow && this.authWindow.closed) {
-                            clearInterval(checkClosed);
-                            console.log('Auth window was closed manually');
-                            // Don't show an error - user might enter the code manually
-                        }
-                    }, 1000);
+                    const authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
                     
                     // Show instructions to user
                     this.onOAuthVerificationNeeded(data.authUrl, data.sessionId);
                 } else {
-                    // Redirect to Wikipedia for authorization
-                    console.log('Redirecting to Wikipedia authorization URL:', data.authUrl);
-                    window.location.href = data.authUrl;
+                    // Open authorization URL in popup window
+                    console.log('Opening authorization popup window:', data.authUrl);
+                    const authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
+                    
+                    // Set up message listener for popup callback
+                    const messageHandler = (event) => {
+                        console.log('Received postMessage:', event.data);
+                        
+                        // Basic origin check (in production, use specific domain)
+                        if (event.data && event.data.type === 'oauth_success') {
+                            console.log('OAuth success message received');
+                            window.removeEventListener('message', messageHandler);
+                            
+                            // Store session ID and user info
+                            this.sessionId = event.data.sessionId;
+                            this.user = event.data.user;
+                            localStorage.setItem('wikipedia_oauth_session', this.sessionId);
+                            localStorage.removeItem('wikipedia_oauth_session_pending');
+                            
+                            // Call success handler
+                            this.onLoginSuccess(this.user);
+                        } else if (event.data && event.data.type === 'oauth_error') {
+                            console.log('OAuth error message received');
+                            window.removeEventListener('message', messageHandler);
+                            
+                            // Clear pending session
+                            localStorage.removeItem('wikipedia_oauth_session_pending');
+                            
+                            // Call error handler
+                            this.onLoginError(event.data.error || 'OAuth authorization failed');
+                        }
+                    };
+                    
+                    window.addEventListener('message', messageHandler);
+                    
+                    // Check if popup was blocked
+                    if (!authWindow || authWindow.closed) {
+                        window.removeEventListener('message', messageHandler);
+                        throw new Error('Popup window was blocked. Please allow popups for this site.');
+                    }
+                    
+                    // Monitor popup window
+                    const checkInterval = setInterval(() => {
+                        if (authWindow.closed) {
+                            clearInterval(checkInterval);
+                            window.removeEventListener('message', messageHandler);
+                            
+                            // Check if we got a successful login before window closed
+                            if (!this.sessionId) {
+                                this.onLoginError('Authorization window was closed');
+                            }
+                        }
+                    }, 1000);
                 }
             } else {
                 console.error('Login endpoint returned error:', data.error);
