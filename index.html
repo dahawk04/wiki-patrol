@@ -1458,6 +1458,8 @@
             oauthClient.onLoginSuccess = (user) => {
                 authState.isLoggedIn = true;
                 authState.username = user.name;
+                // Store username in localStorage for persistence
+                localStorage.setItem('wikipedia_oauth_username', user.name);
                 updateAuthUI();
                 showStatus(`Successfully logged in as ${user.name}!`, 'success');
                 
@@ -1504,6 +1506,8 @@
                 authState.isLoggedIn = false;
                 authState.username = '';
                 authState.csrfToken = '';
+                // Clear stored username
+                localStorage.removeItem('wikipedia_oauth_username');
                 updateAuthUI();
                 showStatus('Logged out successfully', 'info');
                 
@@ -1544,7 +1548,7 @@
             apiKeys: {
                 openai: '',
                 google: '',
-                huggingface: '' // Optional for higher rate limits
+                huggingface: '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' // API key for higher rate limits
             }
         };
 
@@ -1676,15 +1680,38 @@
 
         // Check initial auth status and show/hide overlay
         async function checkInitialAuthStatus() {
-            const isLoggedIn = await checkAuthStatus();
+            // First try to restore username from localStorage
+            const storedUsername = localStorage.getItem('wikipedia_oauth_username');
+            const storedSessionId = localStorage.getItem('wikipedia_oauth_session');
             
-            if (isLoggedIn) {
-                // User is already logged in, hide overlay and initialize app
+            if (storedUsername && storedSessionId) {
+                // Restore the username immediately for better UX
+                authState.username = storedUsername;
+                authState.isLoggedIn = true;
+                updateAuthUI();
                 hideLoginOverlay();
                 initializeApplication();
+                
+                // Then verify the session in the background
+                setTimeout(async () => {
+                    const isLoggedIn = await checkAuthStatus();
+                    if (!isLoggedIn) {
+                        // Session expired, show login overlay
+                        showLoginOverlay();
+                    }
+                }, 100);
             } else {
-                // User is not logged in, show the overlay
-                showLoginOverlay();
+                // No stored credentials, check auth status
+                const isLoggedIn = await checkAuthStatus();
+                
+                if (isLoggedIn) {
+                    // User is already logged in, hide overlay and initialize app
+                    hideLoginOverlay();
+                    initializeApplication();
+                } else {
+                    // User is not logged in, show the overlay
+                    showLoginOverlay();
+                }
             }
         }
 
@@ -1775,17 +1802,45 @@
         async function checkAuthStatus() {
             if (!oauthClient) return false;
             
-            const user = await oauthClient.verifySession();
-            if (user) {
-                authState.isLoggedIn = true;
-                authState.username = user.name;
-                updateAuthUI();
-                return true;
-            } else {
-                authState.isLoggedIn = false;
-                authState.username = '';
-                updateAuthUI();
-                return false;
+            try {
+                const user = await oauthClient.verifySession();
+                if (user) {
+                    authState.isLoggedIn = true;
+                    authState.username = user.name;
+                    updateAuthUI();
+                    return true;
+                } else {
+                    authState.isLoggedIn = false;
+                    authState.username = '';
+                    updateAuthUI();
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+                // Don't clear the session on network errors - user might still be logged in
+                // Only clear if we get a definitive "not logged in" response
+                if (error.message && error.message.includes('401') || error.message.includes('unauthorized')) {
+                    authState.isLoggedIn = false;
+                    authState.username = '';
+                    updateAuthUI();
+                    return false;
+                } else {
+                    // Network error or other issue - assume user is still logged in if we had a session
+                    const hasSession = localStorage.getItem('wikipedia_oauth_session');
+                    const storedUsername = localStorage.getItem('wikipedia_oauth_username');
+                    if (hasSession && storedUsername) {
+                        console.log('Network error during auth check, maintaining current session');
+                        authState.isLoggedIn = true;
+                        authState.username = storedUsername;
+                        updateAuthUI();
+                        return true;
+                    } else {
+                        authState.isLoggedIn = false;
+                        authState.username = '';
+                        updateAuthUI();
+                        return false;
+                    }
+                }
             }
         }
 
