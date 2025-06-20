@@ -67,7 +67,13 @@ class SessionStorage {
             try {
                 const data = await this.kvStore.get(`session:${sessionId}`);
                 if (data) {
-                    const sessionData = JSON.parse(data);
+                    // The Vercel KV SDK may return the value either as the
+                    // original string **or** the already-parsed object,
+                    // depending on how it was stored / cached.  Attempt to
+                    // parse only when we actually have a string.
+
+                    const sessionData = typeof data === 'string' ? JSON.parse(data) : data;
+
                     // Check if session has expired
                     if (sessionData.expiresAt && sessionData.expiresAt < Date.now()) {
                         await this.delete(sessionId);
