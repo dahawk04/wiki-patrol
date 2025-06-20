@@ -321,39 +321,39 @@ class WikipediaOAuthClient {
     }
     
     /**
-     * Submit verification code for out-of-band OAuth
+     * Submit the verification code received from Wikipedia
+     * @param {string} verificationCode The code from Wikipedia
      */
     async submitVerificationCode(verificationCode) {
         console.log('Submitting verification code...');
         if (!this.sessionId) {
-            throw new Error('No session ID found');
+            console.error('No session ID found for verification');
+            throw new Error('No active session. Please start the login process again.');
         }
-        
+
         try {
             const response = await fetch(`${this.backendUrl}/auth/verify-code`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sessionId: this.sessionId,
                     verificationCode: verificationCode
                 })
             });
-            
+
             const data = await response.json();
-            
             if (data.success) {
+                console.log('Verification successful:', data);
                 this.user = data.user;
-                console.log('Verification successful for user:', this.user);
                 this.onLoginSuccess(this.user);
                 return this.user;
             } else {
                 console.error('Verification failed:', data.error);
-                throw new Error(data.error || 'Verification failed');
+                this.onLoginError(data.error);
+                return null;
             }
         } catch (error) {
-            console.error('Verification error:', error);
+            console.error('Error submitting verification code:', error);
             this.onLoginError(error.message);
             throw error;
         }
