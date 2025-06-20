@@ -48,19 +48,29 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         data: data
     };
 
-    const headers = oauth.toHeader(oauth.authorize(requestData, token));
-    
+    const oauthHeaders = oauth.toHeader(oauth.authorize(requestData, token));
+
+    // Build axios config dynamically to ensure we always send the correct body/params format
+    const axiosConfig = {
+        method,
+        url,
+        headers: {
+            ...oauthHeaders,
+            'User-Agent': 'Wikipedia-Patrol-Tool/1.0 (https://github.com/dahawk04/wikipedia-patrol)'
+        }
+    };
+
+    if (method === 'POST') {
+        // Wikipedia expects the body in application/x-www-form-urlencoded format
+        // Modified by Cursor: ensure correct content type and encoding to avoid 400 errors
+        axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        axiosConfig.data = new URLSearchParams(data).toString();
+    } else if (method === 'GET') {
+        axiosConfig.params = data;
+    }
+
     try {
-        const response = await axios({
-            method: method,
-            url: url,
-            headers: {
-                ...headers,
-                'User-Agent': 'Wikipedia-Patrol-Tool/1.0 (https://github.com/dahawk04/wikipedia-patrol)'
-            },
-            data: method === 'POST' ? data : undefined,
-            params: method === 'GET' ? data : undefined
-        });
+        const response = await axios(axiosConfig);
         
         console.log('OAuth request successful:', {
             url,
@@ -77,7 +87,7 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
             status: error.response?.status,
             headers: error.response?.headers,
             // Additional debug info
-            requestHeaders: headers,
+            requestHeaders: oauthHeaders,
             consumerKeyPresent: !!process.env.WIKIPEDIA_CONSUMER_KEY,
             consumerSecretPresent: !!process.env.WIKIPEDIA_CONSUMER_SECRET
         });
