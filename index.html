@@ -733,11 +733,9 @@
             </div>
             
             <div id="verificationStep" class="login-step hidden">
-                <p>A new window has opened for authorization. After authorizing, enter the verification code you receive from Wikipedia below.</p>
-                <form id="verification-form">
-                    <input type="text" id="verificationCode" placeholder="Enter code here" required style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;"/>
-                    <button type="submit" class="btn-primary">Submit Code</button>
-                </form>
+                <p>A new window has opened for Wikipedia authorization.</p>
+                <p>Please click "Allow" in the popup window to complete your login.</p>
+                <p style="font-size: 14px; color: #666; margin-top: 10px;">The window will close automatically once authorization is complete.</p>
             </div>
 
             <div class="security-notice">
@@ -1161,32 +1159,9 @@
             };
             
             oauthClient.onOAuthVerificationNeeded = (authUrl, sessionId) => {
-                console.log('OAuth verification needed');
-                // Show verification step
-                document.getElementById('loginStep').classList.add('hidden');
-                document.getElementById('verificationStep').classList.remove('hidden');
-                updateOverlayStatus('Please enter the verification code from Wikipedia');
-                
-                // Set up the verification form handler
-                const verificationForm = document.getElementById('verification-form');
-                if (verificationForm) {
-                    // Remove any existing listeners to avoid duplicates
-                    const newForm = verificationForm.cloneNode(true);
-                    verificationForm.parentNode.replaceChild(newForm, verificationForm);
-                    
-                    newForm.addEventListener('submit', async (event) => {
-                        event.preventDefault();
-                        const code = document.getElementById('verificationCode').value;
-                        if (!code) return;
-                        
-                        showStatus('Verifying code...', 'info');
-                        try {
-                            await oauthClient.submitVerificationCode(code);
-                        } catch (error) {
-                            console.error('Verification error:', error);
-                        }
-                    });
-                }
+                console.log('OAuth verification needed - this callback is not used in standard flow');
+                // This callback is not used in the standard OAuth flow
+                // The popup window handles everything automatically
             };
             
             oauthClient.onLogout = () => {
@@ -3696,6 +3671,7 @@ Format: SCORE|VERDICT|REASONING`;
         }
 
         function showVerification() {
+            // Not used in standard OAuth flow
             document.getElementById('loginOverlay').style.display = 'block';
             document.querySelector('.container').style.display = 'none';
             document.getElementById('loginStep').classList.add('hidden');

@@ -107,6 +107,11 @@ class WikipediaOAuthClient {
                     console.log('Opening Wikipedia authorization in new window:', data.authUrl);
                     const authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
                     
+                    // Show waiting UI
+                    if (typeof showVerification === 'function') {
+                        showVerification();
+                    }
+                    
                     // Poll for completion
                     const pollInterval = setInterval(() => {
                         try {
@@ -118,6 +123,9 @@ class WikipediaOAuthClient {
                                         console.log('OAuth completed successfully');
                                     } else {
                                         console.log('OAuth window closed without completing');
+                                        if (typeof showLogin === 'function') {
+                                            showLogin();
+                                        }
                                     }
                                 });
                             }
