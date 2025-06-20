@@ -63,8 +63,8 @@ module.exports = async (req, res) => {
             createdAt: Date.now()
         });
         
-        // Build authorization URL with explicit OOB callback
-        const authUrl = `${ENDPOINTS.authorize}?oauth_token=${requestToken.key}&oauth_consumer_key=${process.env.WIKIPEDIA_CONSUMER_KEY}&oauth_callback=oob`;
+        // Build authorization URL (callback was already specified in the request token step)
+        const authUrl = `${ENDPOINTS.authorize}?oauth_token=${requestToken.key}`;
         
         console.log('OAuth flow started successfully');
         
