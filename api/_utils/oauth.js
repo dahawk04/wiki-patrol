@@ -90,7 +90,7 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
     // Build axios config dynamically to ensure we always send the correct body/params format
     const axiosConfig = {
         method,
-        url: baseUrl, // Use the same base URL for the actual request
+        url: url, // Use the original URL for the actual request (MediaWiki needs title in URL)
         headers: {
             ...oauthHeaders,
             'User-Agent': 'Wikipedia-Patrol-Tool/1.0 (https://github.com/dahawk04/wikipedia-patrol)'
@@ -101,8 +101,8 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         // Wikipedia expects the body in application/x-www-form-urlencoded format
         // Modified by Cursor: ensure correct content type and encoding to avoid 400 errors
         axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        // Use postData which includes title for MediaWiki routing
-        axiosConfig.data = new URLSearchParams(postData).toString();
+        // For MediaWiki, don't include title in POST body since it's in the URL
+        axiosConfig.data = new URLSearchParams(cleanData).toString();
         console.log('POST data being sent:', axiosConfig.data);
     } else if (method === 'GET') {
         axiosConfig.params = cleanData;
