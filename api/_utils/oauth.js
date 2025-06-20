@@ -11,10 +11,13 @@ const ENDPOINTS = {
 };
 
 // OAuth configuration
+const consumerKey = process.env.WIKIPEDIA_CONSUMER_KEY?.trim();
+const consumerSecret = process.env.WIKIPEDIA_CONSUMER_SECRET?.trim();
+
 const oauth = OAuth({
     consumer: {
-        key: process.env.WIKIPEDIA_CONSUMER_KEY,
-        secret: process.env.WIKIPEDIA_CONSUMER_SECRET
+        key: consumerKey,
+        secret: consumerSecret
     },
     signature_method: 'HMAC-SHA1',
     hash_function(base_string, key) {
@@ -24,10 +27,10 @@ const oauth = OAuth({
 
 // Log OAuth configuration (without secrets)
 console.log('OAuth configured with:', {
-    hasConsumerKey: !!process.env.WIKIPEDIA_CONSUMER_KEY,
-    hasConsumerSecret: !!process.env.WIKIPEDIA_CONSUMER_SECRET,
-    consumerKeyLength: process.env.WIKIPEDIA_CONSUMER_KEY?.length || 0,
-    consumerKeyPrefix: process.env.WIKIPEDIA_CONSUMER_KEY?.substring(0, 6) || 'NOT_SET'
+    hasConsumerKey: !!consumerKey,
+    hasConsumerSecret: !!consumerSecret,
+    consumerKeyLength: consumerKey?.length || 0,
+    consumerKeyPrefix: consumerKey?.substring(0, 6) || 'NOT_SET'
 });
 
 // Session storage (using a simple Map for now - in production use Redis/Database)
