@@ -13,6 +13,21 @@ A modern web application for efficiently patrolling recent changes on Wikipedia 
 - Namespace filtering (Main, Talk, User, etc.)
 - Comprehensive content and pattern analysis
 
+### 📂 **Article Categorization (NEW)**
+- **Smart Article Discovery**: Finds uncategorized articles using multiple methods (category scanning, recent changes, special pages)
+- **Wikipedia API Integration**: Primary source for category suggestions using Wikipedia's own categorization data
+  - **🔗 Similar Articles Analysis**: Finds articles with similar content and uses their categories (highest accuracy)
+  - **🔍 Category Search**: Searches Wikipedia's category system by topic and keywords  
+  - **📋 Template Mapping**: Analyzes article templates (infoboxes) to suggest relevant categories
+  - **🌳 Category Hierarchy**: Explores category trees to find appropriate parent/child categories
+- **AI-Powered Supplementary Suggestions**: Uses OpenAI GPT, Hugging Face models, and local pattern matching as additional sources
+- **Interactive Category Selection**: Click-to-select interface with source indicators and confidence scores
+- **Source Attribution**: Each suggestion shows its source with clear icons and descriptions
+- **Confidence Scoring**: Categories ranked by reliability with Wikipedia APIs given highest priority
+- **Custom Category Addition**: Manual category input with validation
+- **Bulk Operations**: Process multiple articles efficiently with rate limiting
+- **Progress Tracking**: Real-time statistics and progress indicators
+
 ### 🛡️ **Advanced Vandalism Protection**
 - **Multi-Layer Detection**: Combines ORES, content analysis, pattern detection, and user analysis
 - **Content Analysis**: Detects profanity, gibberish, spam, nonsense patterns, excessive caps/punctuation
@@ -161,6 +176,69 @@ To unlock advanced AI analysis capabilities:
 - When logged in, you can add custom reasons for reverts
 - Use the "Custom Revert Summary" field for additional context
 - The tool automatically includes proper attribution and links
+
+## Article Categorization Guide
+
+### Getting Started with Categorization
+1. Click the **"📂 Article Categorization"** tab to switch modes
+2. Configure your settings:
+   - **Articles per batch**: How many articles to process at once (10-50)
+   - **Namespace filter**: Main articles only or all namespaces
+   - **AI suggestion mode**: Comprehensive (slower, more accurate) vs Fast (quick suggestions)
+   - **Auto-add confidence threshold**: Minimum confidence for auto-suggestions (70-95%)
+
+### Finding Uncategorized Articles
+1. Click **"Find Articles"** (or press `F`) to discover uncategorized articles
+2. The system uses multiple discovery methods:
+   - **Category scanning**: From "Category:All uncategorized articles"
+   - **Recent changes**: New articles that might be uncategorized
+   - **Special pages**: Wikipedia's uncategorized pages list
+3. Articles are enriched with extracts, thumbnails, and metadata
+
+### AI Category Suggestions
+1. Click **"AI Suggest"** (or press `A`) to generate suggestions for all articles
+2. Or click **"🤖 AI Suggest"** on individual articles
+3. The system combines multiple AI providers:
+   - **OpenAI GPT-3.5**: Context-aware category analysis (requires API key)
+   - **Hugging Face**: Text classification and topic detection (free tier available)
+   - **Local Pattern Matching**: Always available, detects common patterns
+4. Each suggestion shows:
+   - **Category name**: Suggested Wikipedia category
+   - **Confidence score**: AI confidence percentage
+   - **Color coding**: Visual indication of suggestion quality
+
+### Selecting and Adding Categories
+1. **Click category tags** to select/deselect them
+2. **Add custom categories** using the text input field
+3. **Review suggestions** carefully - AI is helpful but not perfect
+4. Click **"📁 Add Categories"** (or press `C`) to add selected categories to the article
+5. The system automatically:
+   - Retrieves current article content
+   - Appends category wikitext
+   - Makes the edit with proper attribution
+   - Tracks progress and statistics
+
+### Navigation and Workflow
+- **Next/Previous**: Use arrow keys or J/K to navigate between articles
+- **Skip articles**: Press `S` or click "⏭️ Skip" to move to the next article
+- **View articles**: Click "👁️ View" to open articles in new tabs
+- **Progress tracking**: Monitor how many articles you've processed and categorized
+- **Batch processing**: Work through articles systematically
+
+### Smart Pattern Recognition
+The local AI automatically detects:
+- **Birth/death years**: "1985 births", "2020 deaths"
+- **Nationalities**: "American people", "British people"
+- **Professions**: "Actors", "Musicians", "Politicians"
+- **Living people**: Automatically added for people with birth years but no death years
+- **Geographic patterns**: Location-based categorization
+
+### Best Practices
+1. **Review AI suggestions** - They're helpful starting points, not absolute truth
+2. **Check category existence** - Ensure suggested categories actually exist on Wikipedia
+3. **Follow Wikipedia guidelines** - Respect categorization policies and conventions
+4. **Start with obvious categories** - Add clear, uncontroversial categories first
+5. **Use multiple sources** - Combine AI suggestions with your own knowledge
 
 ### Enhanced Detection Configuration
 The tool provides fine-grained control over vandalism detection:
