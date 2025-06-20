@@ -1166,6 +1166,27 @@
                 document.getElementById('loginStep').classList.add('hidden');
                 document.getElementById('verificationStep').classList.remove('hidden');
                 updateOverlayStatus('Please enter the verification code from Wikipedia');
+                
+                // Set up the verification form handler
+                const verificationForm = document.getElementById('verification-form');
+                if (verificationForm) {
+                    // Remove any existing listeners to avoid duplicates
+                    const newForm = verificationForm.cloneNode(true);
+                    verificationForm.parentNode.replaceChild(newForm, verificationForm);
+                    
+                    newForm.addEventListener('submit', async (event) => {
+                        event.preventDefault();
+                        const code = document.getElementById('verificationCode').value;
+                        if (!code) return;
+                        
+                        showStatus('Verifying code...', 'info');
+                        try {
+                            await oauthClient.submitVerificationCode(code);
+                        } catch (error) {
+                            console.error('Verification error:', error);
+                        }
+                    });
+                }
             };
             
             oauthClient.onLogout = () => {
@@ -3666,23 +3687,24 @@ Format: SCORE|VERDICT|REASONING`;
             });
         }
 
-        // UI Update Functions
+        // UI Update Functions - use the actual existing elements
         function showLogin() {
-            document.getElementById('login-container').style.display = 'flex';
-            document.getElementById('verification-container').style.display = 'none';
-            document.getElementById('app-content').style.display = 'none';
+            document.getElementById('loginOverlay').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+            document.getElementById('loginStep').classList.remove('hidden');
+            document.getElementById('verificationStep').classList.add('hidden');
         }
 
         function showVerification() {
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('verification-container').style.display = 'flex';
-            document.getElementById('app-content').style.display = 'none';
+            document.getElementById('loginOverlay').style.display = 'block';
+            document.querySelector('.container').style.display = 'none';
+            document.getElementById('loginStep').classList.add('hidden');
+            document.getElementById('verificationStep').classList.remove('hidden');
         }
 
         function showApp() {
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('verification-container').style.display = 'none';
-            document.getElementById('app-content').style.display = 'block';
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
         }
 
         // --- OAuth Client Setup ---
@@ -3691,7 +3713,8 @@ Format: SCORE|VERDICT|REASONING`;
 
         client.onLoginSuccess = (user) => {
             console.log('Login successful in UI:', user);
-            document.getElementById('user-info').textContent = `Logged in as: ${user.name}`;
+            // Update auth status in the existing UI
+            document.getElementById('authStatus').textContent = `Logged in as: ${user.name}`;
             showApp();
             loadRecentChanges();
         };
@@ -3704,7 +3727,7 @@ Format: SCORE|VERDICT|REASONING`;
 
         client.onLogout = () => {
             console.log('Logged out in UI');
-            document.getElementById('user-info').textContent = '';
+            document.getElementById('authStatus').textContent = 'Not logged in to Wikipedia';
             showLogin();
         };
 
@@ -3714,26 +3737,8 @@ Format: SCORE|VERDICT|REASONING`;
         };
 
         // --- Event Listeners ---
-        document.getElementById('login-btn').addEventListener('click', () => {
-            client.login();
-        });
-
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            client.logout();
-        });
-
-        document.getElementById('verification-form').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const code = document.getElementById('verification-code').value;
-            showStatus('Verifying code...', 'info');
-            try {
-                await client.submitVerificationCode(code);
-                // On success, onLoginSuccess will be called
-            } catch (error) {
-                // On failure, onLoginError will be called
-                console.error('Caught verification error in form handler');
-            }
-        });
+        // These elements don't exist in the current HTML structure
+        // The actual event listeners are handled by the existing oauthClient setup above
 
         // --- Initial Load ---
         async function initialize() {
