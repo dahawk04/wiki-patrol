@@ -45,6 +45,20 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         data
     });
 
+    // For MediaWiki OAuth endpoints, we need to use the base URL without query parameters
+    // to prevent the oauth-1.0a library from auto-extracting query parameters for signing
+    let baseUrl = url;
+    let titleParam = null;
+    
+    if (url.includes('?')) {
+        const urlParts = url.split('?');
+        baseUrl = urlParts[0];
+        
+        // Extract title parameter from URL query string for MediaWiki routing
+        const queryParams = new URLSearchParams(urlParts[1]);
+        titleParam = queryParams.get('title');
+    }
+
     // Clean the data to remove any URL-based parameters that shouldn't be in the signature
     const cleanData = { ...data };
     
@@ -53,12 +67,8 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         delete cleanData.title;
     }
 
-    // For MediaWiki OAuth endpoints, we need to use the base URL without query parameters
-    // to prevent the oauth-1.0a library from auto-extracting query parameters for signing
-    let baseUrl = url;
-    if (url.includes('?')) {
-        baseUrl = url.split('?')[0];
-    }
+    // For MediaWiki, include title in POST body for routing (not in signature)
+    const postData = titleParam ? { ...cleanData, title: titleParam } : cleanData;
 
     const requestData = {
         url: baseUrl,
@@ -80,7 +90,7 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
     // Build axios config dynamically to ensure we always send the correct body/params format
     const axiosConfig = {
         method,
-        url,
+        url: baseUrl, // Use the same base URL for the actual request
         headers: {
             ...oauthHeaders,
             'User-Agent': 'Wikipedia-Patrol-Tool/1.0 (https://github.com/dahawk04/wikipedia-patrol)'
@@ -91,8 +101,8 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         // Wikipedia expects the body in application/x-www-form-urlencoded format
         // Modified by Cursor: ensure correct content type and encoding to avoid 400 errors
         axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        // Use the cleaned data (without title) for the actual POST body
-        axiosConfig.data = new URLSearchParams(cleanData).toString();
+        // Use postData which includes title for MediaWiki routing
+        axiosConfig.data = new URLSearchParams(postData).toString();
         console.log('POST data being sent:', axiosConfig.data);
     } else if (method === 'GET') {
         axiosConfig.params = cleanData;
