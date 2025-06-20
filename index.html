@@ -2122,89 +2122,23 @@
                     console.warn('ORES service unavailable, using default scores');
                 }
                 
-                // Perform comprehensive analysis for each change
+                // Initialize basic analysis for immediate display
                 for (let i = 0; i < recentChanges.length; i++) {
                     const change = recentChanges[i];
                     
-                    // Initialize analysis results
+                    // Initialize analysis results with ORES data
                     change.analysis = {
                         ores: { damaging: { score: 0.5 }, goodfaith: { score: 0.5 } },
                         content: { score: 0, details: [] },
                         patterns: { score: 0, details: [] },
                         user: { score: 0, details: [] },
                         combined: { score: 0.5, level: 'medium', details: [] },
-                        ai: null // AI analysis will be added here
+                        ai: { providers: [], confidence: 0, verdict: 'pending', reasoning: 'Analysis in progress...' }
                     };
                     
                     // Get ORES scores
                     if (oresData && oresData.enwiki && oresData.enwiki.scores && oresData.enwiki.scores[change.revid]) {
                         change.analysis.ores = oresData.enwiki.scores[change.revid];
-                    }
-                    
-                    // Get page content for detailed analysis
-                    let newContent = '';
-                    let oldContent = '';
-                    
-                    try {
-                        const contentResponse = await makeAPICall({
-                            action: 'query',
-                            prop: 'revisions',
-                            titles: change.title,
-                            rvprop: 'content',
-                            rvstartid: change.revid,
-                            rvlimit: 2,
-                            format: 'json'
-                        }, 'GET', false);
-                        
-                        const pages = contentResponse.query.pages;
-                        const page = Object.values(pages)[0];
-                        
-                        if (page && page.revisions && page.revisions.length > 0) {
-                            newContent = page.revisions[0]['*'] || '';
-                            oldContent = page.revisions[1] ? page.revisions[1]['*'] || '' : '';
-                            
-                            // Perform content analysis
-                            change.analysis.content = analyzeContent(newContent);
-                
-                            // Perform pattern analysis
-                            change.analysis.patterns = analyzeEditPatterns(change, newContent, oldContent);
-                            
-                            // Perform AI analysis
-                            try {
-                                const aiAnalysis = await performAIAnalysis(change, newContent, oldContent);
-                                if (aiAnalysis) {
-                                    change.analysis.ai = aiAnalysis;
-                                }
-                            } catch (aiError) {
-                                console.warn(`AI analysis failed for ${change.title}:`, aiError);
-                                change.analysis.ai = {
-                                    error: 'AI analysis unavailable',
-                                    providers: []
-                                };
-                            }
-                        }
-                    } catch (contentError) {
-                        console.warn(`Could not analyze content for ${change.title}:`, contentError);
-                        // Use comment analysis as fallback
-                        if (change.comment) {
-                            change.analysis.content = analyzeContent(change.comment);
-                            
-                            // Try AI analysis on comment
-                            try {
-                                const aiAnalysis = await performAIAnalysis(change, change.comment, '');
-                                if (aiAnalysis) {
-                                    change.analysis.ai = aiAnalysis;
-                                }
-                            } catch (aiError) {
-                                console.warn(`AI analysis failed for comment in ${change.title}:`, aiError);
-                            }
-                        }
-                        change.analysis.patterns = analyzeEditPatterns(change);
-                    }
-                    
-                    // Update progress
-                    if (i % 5 === 0) {
-                        showStatus(`Analyzing changes... ${i + 1}/${recentChanges.length}`);
                     }
                 }
                 
@@ -2243,13 +2177,131 @@
 
                 currentIndex = 0;
                 renderChanges();
-                showStatus('Enhanced analysis complete - changes prioritized by risk level');
+                showStatus('Changes loaded - Enhanced analysis running in background...');
+                
+                // Run enhanced analysis in background (non-blocking)
+                setTimeout(() => {
+                    performEnhancedAnalysisInBackground(recentChanges);
+                }, 100);
             } catch (error) {
                 console.error('Error fetching changes:', error);
                 showStatus('Error loading changes', 'error');
                 const container = document.getElementById('changesContainer');
                 container.innerHTML = '<p style="text-align: center; padding: 40px; color: #d32f2f;">Error loading changes. Please try again.</p>';
             }
+        }
+
+        // Perform enhanced analysis in background (non-blocking)
+        async function performEnhancedAnalysisInBackground(changes) {
+            console.log('Starting background enhanced analysis...');
+            
+            for (let i = 0; i < changes.length; i++) {
+                const change = changes[i];
+                
+                try {
+                    // Get page content for detailed analysis
+                    let newContent = '';
+                    let oldContent = '';
+                    
+                    try {
+                        const contentResponse = await makeAPICall({
+                            action: 'query',
+                            prop: 'revisions',
+                            titles: change.title,
+                            rvprop: 'content',
+                            rvstartid: change.revid,
+                            rvlimit: 2,
+                            format: 'json'
+                        }, 'GET', false);
+                        
+                        const pages = contentResponse.query.pages;
+                        const page = Object.values(pages)[0];
+                        
+                        if (page && page.revisions && page.revisions.length > 0) {
+                            newContent = page.revisions[0]['*'] || '';
+                            oldContent = page.revisions[1] ? page.revisions[1]['*'] || '' : '';
+                            
+                            // Perform content analysis
+                            change.analysis.content = analyzeContent(newContent);
+                
+                            // Perform pattern analysis
+                            change.analysis.patterns = analyzeEditPatterns(change, newContent, oldContent);
+                            
+                            // Perform AI analysis (with graceful failure)
+                            try {
+                                const aiAnalysis = await performAIAnalysis(change, newContent, oldContent);
+                                if (aiAnalysis) {
+                                    change.analysis.ai = aiAnalysis;
+                                }
+                            } catch (aiError) {
+                                console.warn(`AI analysis failed for ${change.title}:`, aiError);
+                                change.analysis.ai = {
+                                    providers: ['Local Analysis'],
+                                    confidence: 0.5,
+                                    verdict: 'legitimate',
+                                    reasoning: 'AI analysis unavailable - using basic patterns only',
+                                    error: aiError.message
+                                };
+                            }
+                        }
+                    } catch (contentError) {
+                        console.warn(`Could not analyze content for ${change.title}:`, contentError);
+                        // Use comment analysis as fallback
+                        if (change.comment) {
+                            change.analysis.content = analyzeContent(change.comment);
+                        }
+                        change.analysis.patterns = analyzeEditPatterns(change);
+                        
+                        // Set AI analysis to failed state
+                        change.analysis.ai = {
+                            providers: ['Local Analysis'],
+                            confidence: 0.5,
+                            verdict: 'legitimate',
+                            reasoning: 'Content analysis unavailable - limited assessment',
+                            error: contentError.message
+                        };
+                    }
+                    
+                    // Recalculate combined risk with new data
+                    change.analysis.combined = calculateCombinedRisk(
+                        change,
+                        change.analysis.ores,
+                        change.analysis.content,
+                        change.analysis.patterns,
+                        change.analysis.user
+                    );
+                    
+                    // Update legacy score
+                    change.oresScore = change.analysis.combined.score;
+                    
+                    // Update UI every few changes
+                    if (i % 3 === 0) {
+                        renderChanges();
+                        showStatus(`Enhanced analysis: ${i + 1}/${changes.length} complete`);
+                    }
+                    
+                } catch (error) {
+                    console.warn(`Background analysis failed for ${change.title}:`, error);
+                    // Ensure AI analysis has a safe fallback
+                    change.analysis.ai = {
+                        providers: ['Error'],
+                        confidence: 0.5,
+                        verdict: 'legitimate',
+                        reasoning: 'Analysis failed - manual review recommended',
+                        error: error.message
+                    };
+                }
+                
+                // Small delay to prevent blocking the UI
+                if (i % 5 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+            }
+            
+            // Final update
+            renderChanges();
+            showStatus('Enhanced analysis complete - all changes analyzed');
+            console.log('Background enhanced analysis completed');
         }
 
         // Render changes
