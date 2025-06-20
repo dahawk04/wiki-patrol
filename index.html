@@ -1,0 +1,3544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikipedia Recent Changes Patrol</title>
+    <script src="wikipedia-oauth-client.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #0066cc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0052a3;
+        }
+
+        .btn-danger {
+            background-color: #d32f2f;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #b71c1c;
+        }
+
+        .btn-success {
+            background-color: #388e3c;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #2e7d32;
+        }
+
+        .btn-secondary {
+            background-color: #757575;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #616161;
+        }
+
+        .change-item {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+
+        .change-item.current {
+            border: 2px solid #0066cc;
+            box-shadow: 0 4px 8px rgba(0,102,204,0.2);
+        }
+
+        .change-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .change-info {
+            flex: 1;
+        }
+
+        .change-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0066cc;
+            text-decoration: none;
+            margin-bottom: 5px;
+            display: inline-block;
+        }
+
+        .change-title:hover {
+            text-decoration: underline;
+        }
+
+        .change-meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .ores-score {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 100px;
+        }
+
+        .ores-high {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+        }
+
+        .ores-medium {
+            background-color: #fff3e0;
+            color: #ef6c00;
+            border: 1px solid #ff9800;
+        }
+
+        .ores-low {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #66bb6a;
+        }
+
+        .diff-preview {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .diff-add {
+            background-color: #dcedc8;
+            color: #33691e;
+            padding: 2px 4px;
+            margin: 2px 0;
+        }
+
+        .diff-remove {
+            background-color: #ffcdd2;
+            color: #b71c1c;
+            padding: 2px 4px;
+            margin: 2px 0;
+        }
+
+        .shortcuts-help {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            font-size: 13px;
+            max-width: 300px;
+        }
+
+        .shortcuts-help h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .shortcut-key {
+            background-color: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0066cc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .status-message.show {
+            opacity: 1;
+        }
+
+        /* Login Overlay Styles */
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f0f2f5;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        #loginOverlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .login-card {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .login-card h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .login-card p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .login-card .btn-primary {
+            font-size: 18px;
+            padding: 12px 32px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .login-card .security-notice {
+            font-size: 13px;
+            color: #999;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .login-status {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+            min-height: 20px;
+        }
+
+        .wikipedia-logo {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 20px;
+        }
+
+        .login-section {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .login-section.logged-in {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .edit-summary-section {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .edit-summary-section label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .edit-summary-section input {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .warning-templates {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .warning-templates button {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .action-buttons button {
+            font-size: 12px;
+            padding: 6px 12px;
+        }
+
+        input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .filter-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .filter-section label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .detection-config {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .detection-config h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #495057;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .config-item label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6c757d;
+        }
+
+        .config-item input, .config-item select {
+            padding: 6px 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .risk-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .risk-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .risk-critical {
+            background-color: #722f37;
+            color: #f8d7da;
+        }
+
+        .risk-high {
+            background-color: #8b2635;
+            color: #f5c6cb;
+        }
+
+        .risk-medium {
+            background-color: #856404;
+            color: #fff3cd;
+        }
+
+        .risk-low {
+            background-color: #155724;
+            color: #d4edda;
+        }
+
+        .detection-details {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .detection-details .detection-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+        }
+
+        .confidence-meter {
+            width: 100px;
+            height: 6px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-left: 8px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .confidence-high { background-color: #dc3545; }
+        .confidence-medium { background-color: #ffc107; }
+        .confidence-low { background-color: #28a745; }
+
+        .ai-analysis-section {
+            background-color: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .ai-analysis-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #1565c0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-providers {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .ai-provider {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .ai-provider input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .ai-provider.enabled {
+            background-color: #e8f5e9;
+            border-color: #4caf50;
+        }
+
+        .ai-context-card {
+            background-color: #f0f8ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .ai-context-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1565c0;
+        }
+
+        .ai-score {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .ai-score.legitimate { background-color: #c8e6c9; color: #2e7d32; }
+        .ai-score.suspicious { background-color: #ffecb3; color: #f57f17; }
+        .ai-score.vandalism { background-color: #ffcdd2; color: #c62828; }
+
+        .ai-reasoning {
+            color: #666;
+            line-height: 1.4;
+            margin-top: 6px;
+        }
+
+        .ai-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .ai-error {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .spinner-small {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #666;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Overlay - Shows before user logs in -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <svg class="wikipedia-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+                <circle cx="64" cy="64" r="64" fill="#000"/>
+                <path fill="#fff" d="M 45.5,35 L 52,35 L 65,80 L 78,35 L 84.5,35 L 95,90 L 88,90 L 80,50 L 67,95 L 63,95 L 50,50 L 42,90 L 35,90 Z"/>
+            </svg>
+            <h2>Wikipedia RC Patrol</h2>
+            <p>Please log in with your Wikipedia account to access the Recent Changes Patrol tool.</p>
+            <button class="btn-primary" onclick="initiateLoginFromOverlay()">Login with Wikipedia</button>
+            <div class="login-status" id="overlayLoginStatus"></div>
+            <div class="security-notice">
+                <strong>🔒 Secure Authentication:</strong> Your login is handled directly by Wikipedia using OAuth. We never see or store your password.
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Wikipedia Recent Changes Patrol</h1>
+            
+            <!-- Authentication Section -->
+            <div class="login-section" id="authSection">
+                <div class="user-info" id="userInfo">
+                    <span id="authStatus">Not logged in to Wikipedia</span>
+                    <div class="auth-buttons">
+                        <button class="btn-primary" id="loginBtn" onclick="initiateLogin()">Login to Wikipedia</button>
+                        <button class="btn-secondary" id="logoutBtn" onclick="logout()" style="display: none;">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <label>ORES Threshold:</label>
+                <input type="range" id="oresThreshold" min="0" max="1" step="0.1" value="0.5">
+                <span id="oresValue">0.5</span>
+                <label style="margin-left: 20px;">Namespace:</label>
+                <select id="namespaceFilter">
+                    <option value="all">All</option>
+                    <option value="0">Main</option>
+                    <option value="1">Talk</option>
+                    <option value="2">User</option>
+                    <option value="3">User talk</option>
+                </select>
+            </div>
+            
+            <!-- Enhanced Detection Configuration -->
+            <div class="detection-config">
+                <h3>🛡️ Enhanced Vandalism Detection</h3>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label>ORES Damaging Threshold</label>
+                        <input type="range" id="damagingThreshold" min="0" max="1" step="0.05" value="0.3">
+                        <span id="damagingValue">0.3</span>
+                    </div>
+                    <div class="config-item">
+                        <label>ORES Goodfaith Threshold</label>
+                        <input type="range" id="goodfaithThreshold" min="0" max="1" step="0.05" value="0.7">
+                        <span id="goodfaithValue">0.7</span>
+                    </div>
+                    <div class="config-item">
+                        <label>Size Change Sensitivity</label>
+                        <select id="sizeChangeSensitivity">
+                            <option value="low">Low (±5000 chars)</option>
+                            <option value="medium" selected>Medium (±2000 chars)</option>
+                            <option value="high">High (±500 chars)</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
+                        <label>New User Detection</label>
+                        <select id="newUserDetection">
+                            <option value="disabled">Disabled</option>
+                            <option value="enabled" selected>Enabled</option>
+                            <option value="strict">Strict (< 100 edits)</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
+                        <label>Content Analysis</label>
+                        <input type="checkbox" id="enableContentAnalysis" checked>
+                        <small>Profanity, gibberish, spam detection</small>
+                    </div>
+                    <div class="config-item">
+                        <label>Pattern Detection</label>
+                        <input type="checkbox" id="enablePatternDetection" checked>
+                        <small>Blanking, link spam, category removal</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Context Analysis -->
+            <div class="ai-analysis-section">
+                <h3>🤖 AI Context Analysis</h3>
+                <p style="font-size: 13px; color: #666; margin-bottom: 10px;">
+                    Use AI models to provide intelligent context about edit quality and legitimacy
+                </p>
+                
+                <div class="ai-providers">
+                    <div class="ai-provider" id="hf-provider">
+                        <input type="checkbox" id="enableHuggingFace" checked>
+                        <label for="enableHuggingFace">
+                            <strong>🤗 Hugging Face</strong><br>
+                            <small>Text classification & analysis</small>
+                        </label>
+                    </div>
+                    
+                    <div class="ai-provider" id="openai-provider">
+                        <input type="checkbox" id="enableOpenAI">
+                        <label for="enableOpenAI">
+                            <strong>🧠 OpenAI</strong><br>
+                            <small>FREE Moderation API (works without key) + Premium GPT Analysis (requires key)</small>
+                        </label>
+                    </div>
+                    
+                    <div class="ai-provider" id="google-provider">
+                        <input type="checkbox" id="enableGoogle">
+                        <label for="enableGoogle">
+                            <strong>🔍 Google AI</strong><br>
+                            <small>PaLM 2 understanding</small>
+                        </label>
+                    </div>
+                    
+                    <div class="ai-provider" id="local-provider">
+                        <input type="checkbox" id="enableLocal">
+                        <label for="enableLocal">
+                            <strong>💻 Local Models</strong><br>
+                            <small>Client-side analysis</small>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="config-grid" style="margin-top: 15px;">
+                    <div class="config-item">
+                        <label>AI Analysis Mode</label>
+                        <select id="aiAnalysisMode">
+                            <option value="fast">Fast (Basic classification)</option>
+                            <option value="comprehensive" selected>Comprehensive (Multi-model)</option>
+                            <option value="deep">Deep (With reasoning)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="config-item">
+                        <label>Rate Limiting</label>
+                        <select id="rateLimitMode">
+                            <option value="conservative" selected>Conservative (5/min)</option>
+                            <option value="moderate">Moderate (10/min)</option>
+                            <option value="aggressive">Aggressive (20/min)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                    💡 <strong>API Keys:</strong> Optional - add your keys for higher rate limits. Works with free tiers too!
+                </div>
+            </div>
+            
+            <!-- API Configuration Button -->
+            <div style="text-align: center; margin-top: 10px;">
+                <button class="btn-secondary" onclick="showAPIConfigModal()" style="font-size: 12px;">
+                    🔑 Configure API Keys (Optional)
+                </button>
+            </div>
+            
+            <div class="controls">
+                <button class="btn-primary" onclick="refreshChanges()">Refresh (R)</button>
+                <button class="btn-danger" onclick="revertCurrent()">Revert (V)</button>
+                <button class="btn-success" onclick="markGood()">Mark Good (G)</button>
+                <button class="btn-secondary" onclick="skipCurrent()">Skip (S)</button>
+                <button class="btn-secondary" onclick="openDiff()">View Diff (D)</button>
+                <button class="btn-secondary" onclick="warnUser()">Warn User (W)</button>
+            </div>
+            
+            <!-- Edit Summary Section -->
+            <div class="edit-summary-section" id="editSummarySection" style="display: none;">
+                <label for="revertSummary">Custom Revert Summary:</label>
+                <input type="text" id="revertSummary" placeholder="Optional: Custom reason for revert">
+                <div class="warning-templates">
+                    <button class="btn-secondary" onclick="setWarningLevel(1)">Level 1</button>
+                    <button class="btn-secondary" onclick="setWarningLevel(2)">Level 2</button>
+                    <button class="btn-secondary" onclick="setWarningLevel(3)">Level 3</button>
+                    <button class="btn-secondary" onclick="setWarningLevel(4)">Final</button>
+                </div>
+            </div>
+        </header>
+
+        <div id="changesContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading recent changes...</p>
+            </div>
+        </div>
+
+        <div class="shortcuts-help">
+            <h3>Keyboard Shortcuts</h3>
+            <div class="shortcut-item">
+                <span>Next change</span>
+                <span class="shortcut-key">↓ / J</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Previous change</span>
+                <span class="shortcut-key">↑ / K</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Revert</span>
+                <span class="shortcut-key">V</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Mark as good</span>
+                <span class="shortcut-key">G</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Skip</span>
+                <span class="shortcut-key">S</span>
+            </div>
+            <div class="shortcut-item">
+                <span>View diff</span>
+                <span class="shortcut-key">D</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Warn user</span>
+                <span class="shortcut-key">W</span>
+            </div>
+            <div class="shortcut-item">
+                <span>Refresh</span>
+                <span class="shortcut-key">R</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-message" id="statusMessage"></div>
+
+    <!-- API Configuration Modal -->
+    <div id="apiConfigModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; border-radius: 8px; padding: 30px; max-width: 700px; width: 90%; max-height: 80%; overflow-y: auto;">
+            <h2 style="margin: 0 0 20px 0; color: #333;">🔑 Secure AI API Configuration</h2>
+            
+            <div style="margin-bottom: 20px; padding: 15px; background-color: #e3f2fd; border-radius: 6px;">
+                <strong>ℹ️ Optional Enhancement</strong><br>
+                <span style="font-size: 14px; color: #666;">
+                    The tool works with free tiers! Adding API keys increases rate limits and unlocks premium models.
+                </span>
+            </div>
+            
+            <!-- Security Settings -->
+            <div style="margin-bottom: 20px; padding: 15px; background-color: #f3e5f5; border-radius: 6px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px;">🔐 Security Settings</h3>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                        <input type="checkbox" id="useSessionStorage" onchange="updateSecuritySettings()">
+                        Session-only storage (cleared when browser closes)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; font-size: 13px;">
+                        <input type="checkbox" id="encryptKeys" checked onchange="updateSecuritySettings()">
+                        Encrypt keys in storage
+                    </label>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 16px;">🤗 Hugging Face API</h3>
+                    <div>
+                        <button class="btn-secondary" onclick="testAPIKey('huggingface')" style="font-size: 11px; padding: 4px 8px;">Test</button>
+                    </div>
+                </div>
+                <p style="font-size: 13px; color: #666; margin: 5px 0 10px 0;">
+                    Free tier: 1000 requests/month. Get your key at: 
+                    <a href="https://huggingface.co/settings/tokens" target="_blank">huggingface.co/settings/tokens</a>
+                </p>
+                <form onsubmit="return false;">
+                    <input type="password" id="hfApiKey" placeholder="hf_..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </form>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 16px;">🧠 OpenAI API</h3>
+                    <div>
+                        <button class="btn-secondary" onclick="testAPIKey('openai')" style="font-size: 11px; padding: 4px 8px;">Test</button>
+                    </div>
+                </div>
+                <p style="font-size: 13px; color: #666; margin: 5px 0 10px 0;">
+                    <strong>FREE Moderation API</strong> (works without key) + <strong>Premium GPT Analysis</strong> (requires key)<br>
+                    $5 free credits for new accounts. Get your key at: 
+                    <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a>
+                </p>
+                <form onsubmit="return false;">
+                    <input type="password" id="openaiApiKey" placeholder="sk-... (optional for moderation)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </form>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 16px;">🔍 Google AI API</h3>
+                    <div>
+                        <button class="btn-secondary" onclick="testAPIKey('google')" style="font-size: 11px; padding: 4px 8px;">Test</button>
+                    </div>
+                </div>
+                <p style="font-size: 13px; color: #666; margin: 5px 0 10px 0;">
+                    Free tier available. Get your key at: 
+                    <a href="https://makersuite.google.com/app/apikey" target="_blank">makersuite.google.com/app/apikey</a>
+                </p>
+                <form onsubmit="return false;">
+                    <input type="password" id="googleApiKey" placeholder="AIzaSy..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </form>
+            </div>
+            
+            <div style="margin-bottom: 20px; padding: 15px; background-color: #fff3e0; border-radius: 6px;">
+                <strong>🔒 Enhanced Security Features</strong><br>
+                <div style="font-size: 13px; color: #666; margin-top: 8px;">
+                    ✅ Keys encrypted with browser fingerprint-based encryption<br>
+                    ✅ Automatic key expiration (24 hours)<br>
+                    ✅ Input validation and format checking<br>
+                    ✅ Local storage only - never sent to our servers<br>
+                    ✅ Keys are masked in UI and cleared from forms after saving
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 20px; padding: 15px; background-color: #ffebee; border-radius: 6px;">
+                <strong>⚠️ Security Warnings</strong><br>
+                <div style="font-size: 13px; color: #666; margin-top: 8px;">
+                    • Browser storage is not 100% secure - use session-only storage for maximum security<br>
+                    • Only enter API keys on trusted devices<br>
+                    • Regularly rotate your API keys for best security<br>
+                    • Monitor your API usage on provider dashboards
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap;">
+                <button class="btn-danger" onclick="clearAllAPIKeys()" style="font-size: 12px;">Clear All Keys</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" onclick="closeAPIConfigModal()">Cancel</button>
+                    <button class="btn-primary" onclick="saveAPIKeys()">Save Securely</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginOverlay" class="hidden">
+        <div class="login-card">
+            <h2>Login to Wikipedia</h2>
+            <p>Please log in to continue using the RC Patrol tool.</p>
+            <button class="btn-primary" onclick="initiateLogin()">Login</button>
+            <div class="login-status">Logged in as: <span id="loggedInUsername"></span></div>
+            <div class="security-notice">
+                <strong>Security Notice:</strong> Your session is secure. Your data is encrypted and stored locally.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let recentChanges = [];
+        let currentIndex = 0;
+        let processedRevisions = new Set();
+        
+        // Authentication state
+        let authState = {
+            isLoggedIn: false,
+            username: '',
+            csrfToken: '',
+            cookies: ''
+        };
+        
+        // OAuth Configuration
+        const OAUTH_BACKEND_URL = 'https://wikipedia-patrol-oauth-2220f09fd13a.herokuapp.com/'; // Your deployed backend URL
+        let oauthClient = null;
+        
+        // Initialize OAuth client
+        try {
+            console.log('Initializing OAuth client with backend:', OAUTH_BACKEND_URL);
+            oauthClient = new WikipediaOAuthClient(OAUTH_BACKEND_URL);
+            
+            // Add debug functionality
+            window.debugOAuth = async function() {
+                console.log('=== OAuth Debug Information ===');
+                console.log('Backend URL:', OAUTH_BACKEND_URL);
+                console.log('OAuth Client:', oauthClient);
+                
+                // Test backend connectivity
+                try {
+                    console.log('Testing backend connectivity...');
+                    const response = await fetch(OAUTH_BACKEND_URL);
+                    console.log('Backend response status:', response.status);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Backend response:', data);
+                    } else {
+                        const text = await response.text();
+                        console.error('Backend error response:', text);
+                    }
+                } catch (error) {
+                    console.error('Failed to connect to backend:', error);
+                }
+                
+                // Test login endpoint specifically
+                try {
+                    console.log('Testing /auth/login endpoint...');
+                    const loginResponse = await fetch(`${OAUTH_BACKEND_URL}/auth/login`);
+                    console.log('Login endpoint status:', loginResponse.status);
+                    
+                    const loginText = await loginResponse.text();
+                    console.log('Login endpoint response:', loginText);
+                    
+                    if (loginResponse.ok) {
+                        try {
+                            const loginData = JSON.parse(loginText);
+                            console.log('Login endpoint data:', loginData);
+                        } catch (e) {
+                            console.error('Failed to parse login response as JSON');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to test login endpoint:', error);
+                }
+                
+                console.log('=== End OAuth Debug ===');
+                console.log('Run debugOAuth() in console to see this information again');
+            };
+            
+            console.log('OAuth debug function available. Run debugOAuth() in console for diagnostics.');
+            
+            // Set up event handlers
+            oauthClient.onLoginSuccess = (user) => {
+                authState.isLoggedIn = true;
+                authState.username = user.name;
+                updateAuthUI();
+                showStatus(`Successfully logged in as ${user.name}!`, 'success');
+                
+                // Hide login overlay and initialize app after successful login
+                hideLoginOverlay();
+                initializeApplication();
+            };
+            
+            oauthClient.onLoginError = (error) => {
+                showStatus(`Login failed: ${error}`, 'error');
+                updateOverlayStatus(`Login failed: ${error}`);
+            };
+            
+            oauthClient.onLogout = () => {
+                authState.isLoggedIn = false;
+                authState.username = '';
+                authState.csrfToken = '';
+                updateAuthUI();
+                showStatus('Logged out successfully', 'info');
+                
+                // Show login overlay again after logout
+                showLoginOverlay();
+            };
+            
+            // Don't check auth status here - let DOMContentLoaded handle it
+        } catch (error) {
+            console.error('Failed to initialize OAuth client:', error);
+            showStatus('Failed to initialize OAuth client', 'error');
+            updateOverlayStatus('Failed to initialize OAuth client. Please refresh the page.');
+        }
+
+        // API configuration
+        const API_URL = 'https://en.wikipedia.org/w/api.php';
+        const CORS_PROXY = ''; // You may need a CORS proxy for some requests
+
+        // Enhanced detection configuration
+        let detectionConfig = {
+            damagingThreshold: 0.3,
+            goodfaithThreshold: 0.7,
+            sizeChangeSensitivity: 'medium',
+            newUserDetection: 'enabled',
+            enableContentAnalysis: true,
+            enablePatternDetection: true,
+            combinedRiskThreshold: 0.6
+        };
+
+        // AI Analysis Configuration
+        let aiConfig = {
+            enableHuggingFace: true,
+            enableOpenAI: false,
+            enableGoogle: false,
+            enableLocal: false,
+            analysisMode: 'comprehensive',
+            rateLimitMode: 'conservative',
+            apiKeys: {
+                openai: '',
+                google: '',
+                huggingface: '' // Optional for higher rate limits
+            }
+        };
+
+        // Rate limiting system
+        const rateLimiter = {
+            requests: new Map(),
+            limits: {
+                conservative: { perMinute: 5, perHour: 100 },
+                moderate: { perMinute: 10, perHour: 200 },
+                aggressive: { perMinute: 20, perHour: 400 }
+            },
+            // OpenAI Moderation has more generous limits (free tier)
+            moderationLimits: {
+                conservative: { perMinute: 20, perHour: 1000 },
+                moderate: { perMinute: 40, perHour: 2000 },
+                aggressive: { perMinute: 60, perHour: 3000 }
+            },
+            
+            canMakeRequest(provider) {
+                const now = Date.now();
+                const isModeration = provider === 'openai-moderation';
+                const limit = isModeration ? this.moderationLimits[aiConfig.rateLimitMode] : this.limits[aiConfig.rateLimitMode];
+                const key = `${provider}_${Math.floor(now / 60000)}`; // Per minute key
+                
+                if (!this.requests.has(key)) {
+                    this.requests.set(key, 0);
+                }
+                
+                const currentCount = this.requests.get(key);
+                return currentCount < limit.perMinute;
+            },
+            
+            recordRequest(provider) {
+                const now = Date.now();
+                const key = `${provider}_${Math.floor(now / 60000)}`;
+                const currentCount = this.requests.get(key) || 0;
+                this.requests.set(key, currentCount + 1);
+                
+                // Cleanup old entries
+                for (const [entryKey] of this.requests) {
+                    const entryTime = parseInt(entryKey.split('_')[1]) * 60000;
+                    if (now - entryTime > 3600000) { // 1 hour
+                        this.requests.delete(entryKey);
+                    }
+                }
+            }
+        };
+
+        // Hugging Face Models Configuration
+        const huggingFaceModels = {
+            textClassification: 'unitary/toxic-bert',
+            editQuality: 'microsoft/DialoGPT-medium',
+            sentiment: 'cardiffnlp/twitter-roberta-base-sentiment-latest',
+            factCheck: 'microsoft/deberta-v3-large-mnli',
+            coherence: 'sentence-transformers/all-MiniLM-L6-v2'
+        };
+
+        // OpenAI Moderation API Categories (Free)
+        const openAIModerationCategories = {
+            harassment: 'Content that expresses, incites, or promotes harassing language',
+            'harassment/threatening': 'Harassment content that also includes violence or serious harm',
+            hate: 'Content that expresses, incites, or promotes hate based on race, gender, ethnicity, religion, nationality, sexual orientation, disability status, or caste',
+            'hate/threatening': 'Hateful content that also includes violence or serious harm',
+            illicit: 'Content that includes illegal activity',
+            'illicit/violent': 'Content that includes illegal activity involving violence',
+            'self-harm': 'Content that promotes, encourages, or depicts acts of self-harm',
+            'self-harm/intent': 'Content where the speaker expresses that they are engaging or intend to engage in acts of self-harm',
+            'self-harm/instructions': 'Content that encourages performing acts of self-harm',
+            sexual: 'Content meant to arouse sexual excitement',
+            'sexual/minors': 'Sexual content that includes an individual who is under 18 years old',
+            violence: 'Content that depicts death, violence, or physical injury',
+            'violence/graphic': 'Content that depicts death, violence, or physical injury in graphic detail'
+        };
+
+        // Vandalism patterns and keywords
+        const vandalismPatterns = {
+            profanity: /\b(fuck|shit|damn|ass|bitch|bastard|piss|crap|hell)\b/gi,
+            gibberish: /(.)\1{4,}|[qwerty]{5,}|[asdf]{4,}/gi,
+            capsSpam: /[A-Z]{10,}/g,
+            repeatedChars: /(.)\1{5,}/g,
+            nonsenseWords: /\b(asdf|qwerty|zxcv|hjkl|uiop|aaaa|bbbb|cccc|dddd|eeee|ffff|gggg|hhhh|iiii|jjjj|kkkk|llll|mmmm|nnnn|oooo|pppp|qqqq|rrrr|ssss|tttt|uuuu|vvvv|wwww|xxxx|yyyy|zzzz)\b/gi,
+            excessivePunctuation: /[!?]{3,}|\.{4,}/g,
+            linkSpam: /http[s]?:\/\/[^\s]{3,}/gi,
+            emailSpam: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi
+        };
+
+        const destructivePatterns = {
+            blankingIndicators: /^[\s\n\r]*$|^\s*(delete|remove|blank|clear)\s*$/i,
+            categoryRemoval: /\[\[Category:[^\]]+\]\]/gi,
+            templateRemoval: /\{\{[^}]+\}\}/gi,
+            infoboxRemoval: /\{\{Infobox[^}]+\}\}/gi,
+            referenceRemoval: /<ref[^>]*>.*?<\/ref>|<ref[^>]*\/>/gi,
+            massiveDeletion: /.{1000,}/  // Will be used for size-based detection
+        };
+
+        // Initialize OAuth client when page loads
+        function initOAuth() {
+            // OAuth client is already initialized above, just need to verify session
+            if (oauthClient) {
+                checkAuthStatus();
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initOAuth(); // Initialize OAuth client first
+            // Don't initialize anything else until user is logged in
+            checkInitialAuthStatus();
+        });
+
+        // Check initial auth status and show/hide overlay
+        async function checkInitialAuthStatus() {
+            const isLoggedIn = await checkAuthStatus();
+            
+            if (isLoggedIn) {
+                // User is already logged in, hide overlay and initialize app
+                hideLoginOverlay();
+                initializeApplication();
+            } else {
+                // User is not logged in, show the overlay
+                showLoginOverlay();
+            }
+        }
+
+        // Show login overlay
+        function showLoginOverlay() {
+            const overlay = document.getElementById('loginOverlay');
+            overlay.classList.remove('hidden');
+            updateOverlayStatus('Please log in to continue');
+        }
+
+        // Hide login overlay
+        function hideLoginOverlay() {
+            const overlay = document.getElementById('loginOverlay');
+            overlay.classList.add('hidden');
+        }
+
+        // Update overlay status message
+        function updateOverlayStatus(message) {
+            const statusEl = document.getElementById('overlayLoginStatus');
+            if (statusEl) {
+                statusEl.textContent = message;
+            }
+        }
+
+        // Initialize application after login
+        function initializeApplication() {
+            setupAIConfig();
+            refreshChanges();
+            setupKeyboardShortcuts();
+            setupFilters();
+            initializeAPIConfig();
+        }
+
+        // Login from overlay
+        async function initiateLoginFromOverlay() {
+            updateOverlayStatus('Checking authentication status...');
+            
+            if (!oauthClient) {
+                updateOverlayStatus('OAuth client not initialized. Please refresh the page.');
+                return;
+            }
+            
+            // Check if already logged in
+            const isLoggedIn = await checkAuthStatus();
+            
+            if (isLoggedIn) {
+                updateOverlayStatus(`Already logged in as ${authState.username}`);
+                setTimeout(() => {
+                    hideLoginOverlay();
+                    initializeApplication();
+                }, 1000);
+                return;
+            }
+            
+            // Start OAuth flow
+            updateOverlayStatus('Redirecting to Wikipedia for authentication...');
+            await oauthClient.login();
+        }
+
+        // Authentication functions
+        async function checkAuthStatus() {
+            if (!oauthClient) return false;
+            
+            const user = await oauthClient.verifySession();
+            if (user) {
+                authState.isLoggedIn = true;
+                authState.username = user.name;
+                updateAuthUI();
+                return true;
+            } else {
+                authState.isLoggedIn = false;
+                authState.username = '';
+                updateAuthUI();
+                return false;
+            }
+        }
+
+        function updateAuthUI() {
+            const authSection = document.getElementById('authSection');
+            const authStatus = document.getElementById('authStatus');
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const editSummarySection = document.getElementById('editSummarySection');
+
+            if (authState.isLoggedIn) {
+                authSection.classList.add('logged-in');
+                authStatus.textContent = `Logged in as: ${authState.username}`;
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'inline-block';
+                editSummarySection.style.display = 'block';
+            } else {
+                authSection.classList.remove('logged-in');
+                authStatus.textContent = 'Not logged in to Wikipedia';
+                loginBtn.style.display = 'inline-block';
+                logoutBtn.style.display = 'none';
+                editSummarySection.style.display = 'none';
+            }
+        }
+
+        async function initiateLogin() {
+            if (!oauthClient) {
+                showStatus('OAuth client not initialized', 'error');
+                return;
+            }
+            
+            // First check if already logged in
+            showStatus('Checking current login status...');
+            const isLoggedIn = await checkAuthStatus();
+            
+            if (isLoggedIn) {
+                showStatus(`Already logged in as ${authState.username}`, 'success');
+                return;
+            }
+            
+            // Start OAuth flow
+            showStatus('Redirecting to Wikipedia for authentication...', 'info');
+            await oauthClient.login();
+        }
+
+        async function logout() {
+            if (oauthClient) {
+                oauthClient.logout();
+            } else {
+                // Fallback for non-OAuth logout
+                authState.isLoggedIn = false;
+                authState.username = '';
+                authState.csrfToken = '';
+                updateAuthUI();
+                showStatus('Logged out successfully');
+            }
+        }
+
+        // Enhanced API call function with authentication
+        async function makeAPICall(params, method = 'GET', includeCredentials = true) {
+            // If OAuth client is available and we need authentication, use it
+            if (oauthClient && includeCredentials && authState.isLoggedIn) {
+                const action = params.action;
+                delete params.action; // Remove action from params since OAuth client handles it
+                return await oauthClient.apiCall(action, params);
+            }
+            
+            // Fallback to direct API calls for read-only operations
+            const url = new URL(API_URL);
+            
+            if (method === 'GET') {
+                Object.keys(params).forEach(key => {
+                    url.searchParams.append(key, params[key]);
+                });
+                url.searchParams.append('origin', '*');
+                
+                const fetchOptions = {
+                    method: 'GET'
+                };
+                
+                // Only include credentials for authenticated requests
+                if (includeCredentials) {
+                    fetchOptions.credentials = 'include';
+                }
+                
+                const response = await fetch(url.toString(), fetchOptions);
+                return await response.json();
+            } else {
+                // POST request
+                const formData = new FormData();
+                Object.keys(params).forEach(key => {
+                    formData.append(key, params[key]);
+                });
+                formData.append('origin', '*');
+                
+                const fetchOptions = {
+                    method: 'POST',
+                    body: formData
+                };
+                
+                // Only include credentials for authenticated requests
+                if (includeCredentials) {
+                    fetchOptions.credentials = 'include';
+                }
+                
+                const response = await fetch(API_URL, fetchOptions);
+                return await response.json();
+            }
+        }
+
+        // Check authentication status without credentials first, then with credentials
+        async function checkAuthStatusSafe() {
+            try {
+                console.log('Checking Wikipedia authentication status...');
+                
+                // First try without credentials to avoid CORS issues
+                const initialResponse = await makeAPICall({
+                    action: 'query',
+                    meta: 'userinfo',
+                    format: 'json'
+                }, 'GET', false);
+                
+                console.log('Initial response (no credentials):', initialResponse);
+                
+                if (initialResponse.query && initialResponse.query.userinfo) {
+                    const userinfo = initialResponse.query.userinfo;
+                    
+                    // If user ID is not 0, they might be logged in - try with credentials
+                    if (userinfo.id && userinfo.id !== 0) {
+                        console.log('User might be logged in, checking with credentials...');
+                        
+                        try {
+                            const authResponse = await makeAPICall({
+                                action: 'query',
+                                meta: 'userinfo',
+                                format: 'json'
+                            }, 'GET', true);
+                            
+                            console.log('Auth response (with credentials):', authResponse);
+                            
+                            if (authResponse.query && authResponse.query.userinfo && authResponse.query.userinfo.id !== 0) {
+                                // User is logged in
+                                console.log(`User is logged in as: ${authResponse.query.userinfo.name} (ID: ${authResponse.query.userinfo.id})`);
+                                authState.isLoggedIn = true;
+                                authState.username = authResponse.query.userinfo.name;
+                                updateAuthUI();
+                                return;
+                            }
+                        } catch (credError) {
+                            console.error('Error checking with credentials:', credError);
+                            // Fall through to not logged in
+                        }
+                    }
+                    
+                    // User is not logged in
+                    console.log('User is not logged in');
+                    authState.isLoggedIn = false;
+                    updateAuthUI();
+                    return;
+                }
+                
+                // Fallback: if the above fails, user is probably not logged in
+                console.log('Could not determine auth status, assuming not logged in');
+                authState.isLoggedIn = false;
+                updateAuthUI();
+                
+            } catch (error) {
+                console.error('Error checking auth status:', error);
+                // On any error, assume not logged in
+                authState.isLoggedIn = false;
+                updateAuthUI();
+            }
+        }
+
+        // Get CSRF token for editing
+        async function getCSRFToken() {
+            if (authState.csrfToken) {
+                return authState.csrfToken;
+            }
+            
+            try {
+                if (oauthClient && authState.isLoggedIn) {
+                    const response = await oauthClient.apiCall('query', {
+                        meta: 'tokens',
+                        format: 'json'
+                    });
+                    authState.csrfToken = response.query.tokens.csrftoken;
+                    return authState.csrfToken;
+                } else {
+                    const response = await makeAPICall({
+                        action: 'query',
+                        meta: 'tokens',
+                        format: 'json'
+                    });
+                    
+                    authState.csrfToken = response.query.tokens.csrftoken;
+                    return authState.csrfToken;
+                }
+            } catch (error) {
+                console.error('Error getting CSRF token:', error);
+                throw error;
+            }
+        }
+
+        // Setup filters
+        function setupFilters() {
+            const thresholdSlider = document.getElementById('oresThreshold');
+            const thresholdValue = document.getElementById('oresValue');
+            
+            thresholdSlider.addEventListener('input', (e) => {
+                thresholdValue.textContent = e.target.value;
+                refreshChanges();
+            });
+
+            document.getElementById('namespaceFilter').addEventListener('change', refreshChanges);
+        }
+
+        // Fetch recent changes
+        async function refreshChanges() {
+            showStatus('Refreshing changes...');
+            const container = document.getElementById('changesContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading recent changes...</p></div>';
+
+            try {
+                const namespace = document.getElementById('namespaceFilter').value;
+                const namespaceParam = namespace === 'all' ? {} : { rcnamespace: namespace };
+                
+                const response = await makeAPICall({
+                    action: 'query',
+                    list: 'recentchanges',
+                    rcprop: 'title|ids|sizes|flags|user|timestamp|comment',
+                    rclimit: 50,
+                    rctype: 'edit|new',
+                    format: 'json',
+                    ...namespaceParam
+                }, 'GET', false);
+                
+                recentChanges = response.query.recentchanges;
+                
+                showStatus('Performing enhanced vandalism analysis...');
+                
+                // Get enhanced ORES scores for all revisions
+                const revIds = recentChanges.map(change => change.revid).join('|');
+                
+                let oresData = null;
+                try {
+                    oresData = await getEnhancedORESScores(revIds);
+                } catch (oresError) {
+                    console.warn('ORES service unavailable, using default scores');
+                }
+                
+                // Perform comprehensive analysis for each change
+                for (let i = 0; i < recentChanges.length; i++) {
+                    const change = recentChanges[i];
+                    
+                    // Initialize analysis results
+                    change.analysis = {
+                        ores: { damaging: { score: 0.5 }, goodfaith: { score: 0.5 } },
+                        content: { score: 0, details: [] },
+                        patterns: { score: 0, details: [] },
+                        user: { score: 0, details: [] },
+                        combined: { score: 0.5, level: 'medium', details: [] },
+                        ai: null // AI analysis will be added here
+                    };
+                    
+                    // Get ORES scores
+                    if (oresData && oresData.enwiki && oresData.enwiki.scores && oresData.enwiki.scores[change.revid]) {
+                        change.analysis.ores = oresData.enwiki.scores[change.revid];
+                    }
+                    
+                    // Get page content for detailed analysis
+                    let newContent = '';
+                    let oldContent = '';
+                    
+                    try {
+                        const contentResponse = await makeAPICall({
+                            action: 'query',
+                            prop: 'revisions',
+                            titles: change.title,
+                            rvprop: 'content',
+                            rvstartid: change.revid,
+                            rvlimit: 2,
+                            format: 'json'
+                        }, 'GET', false);
+                        
+                        const pages = contentResponse.query.pages;
+                        const page = Object.values(pages)[0];
+                        
+                        if (page && page.revisions && page.revisions.length > 0) {
+                            newContent = page.revisions[0]['*'] || '';
+                            oldContent = page.revisions[1] ? page.revisions[1]['*'] || '' : '';
+                            
+                            // Perform content analysis
+                            change.analysis.content = analyzeContent(newContent);
+                
+                            // Perform pattern analysis
+                            change.analysis.patterns = analyzeEditPatterns(change, newContent, oldContent);
+                            
+                            // Perform AI analysis
+                            try {
+                                const aiAnalysis = await performAIAnalysis(change, newContent, oldContent);
+                                if (aiAnalysis) {
+                                    change.analysis.ai = aiAnalysis;
+                                }
+                            } catch (aiError) {
+                                console.warn(`AI analysis failed for ${change.title}:`, aiError);
+                                change.analysis.ai = {
+                                    error: 'AI analysis unavailable',
+                                    providers: []
+                                };
+                            }
+                        }
+                    } catch (contentError) {
+                        console.warn(`Could not analyze content for ${change.title}:`, contentError);
+                        // Use comment analysis as fallback
+                        if (change.comment) {
+                            change.analysis.content = analyzeContent(change.comment);
+                            
+                            // Try AI analysis on comment
+                            try {
+                                const aiAnalysis = await performAIAnalysis(change, change.comment, '');
+                                if (aiAnalysis) {
+                                    change.analysis.ai = aiAnalysis;
+                                }
+                            } catch (aiError) {
+                                console.warn(`AI analysis failed for comment in ${change.title}:`, aiError);
+                            }
+                        }
+                        change.analysis.patterns = analyzeEditPatterns(change);
+                    }
+                    
+                    // Update progress
+                    if (i % 5 === 0) {
+                        showStatus(`Analyzing changes... ${i + 1}/${recentChanges.length}`);
+                    }
+                }
+                
+                // Perform user analysis in parallel for unique users
+                const uniqueUsers = [...new Set(recentChanges.map(change => change.user))];
+                const userAnalysisPromises = uniqueUsers.map(user => analyzeUser(user));
+                const userAnalysisResults = await Promise.all(userAnalysisPromises);
+                
+                // Create user analysis map
+                const userAnalysisMap = {};
+                uniqueUsers.forEach((user, index) => {
+                    userAnalysisMap[user] = userAnalysisResults[index];
+                });
+                
+                // Calculate combined risk for each change
+                recentChanges.forEach(change => {
+                    change.analysis.user = userAnalysisMap[change.user] || { score: 0, details: [] };
+                    change.analysis.combined = calculateCombinedRisk(
+                        change,
+                        change.analysis.ores,
+                        change.analysis.content,
+                        change.analysis.patterns,
+                        change.analysis.user
+                    );
+                    
+                    // Set legacy oresScore for compatibility
+                    change.oresScore = change.analysis.combined.score;
+                });
+
+                // Filter by combined risk threshold
+                const threshold = parseFloat(document.getElementById('oresThreshold').value);
+                recentChanges = recentChanges.filter(change => change.analysis.combined.score >= threshold);
+
+                // Sort by combined risk score (highest first)
+                recentChanges.sort((a, b) => b.analysis.combined.score - a.analysis.combined.score);
+
+                currentIndex = 0;
+                renderChanges();
+                showStatus('Enhanced analysis complete - changes prioritized by risk level');
+            } catch (error) {
+                console.error('Error fetching changes:', error);
+                showStatus('Error loading changes', 'error');
+                const container = document.getElementById('changesContainer');
+                container.innerHTML = '<p style="text-align: center; padding: 40px; color: #d32f2f;">Error loading changes. Please try again.</p>';
+            }
+        }
+
+        // Render changes
+        function renderChanges() {
+            const container = document.getElementById('changesContainer');
+            
+            if (recentChanges.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">No changes found matching your criteria.</p>';
+                return;
+            }
+
+            container.innerHTML = recentChanges.map((change, index) => {
+                const isProcessed = processedRevisions.has(change.revid);
+                const isCurrent = index === currentIndex;
+                const analysis = change.analysis || {};
+                const combined = analysis.combined || { score: 0.5, level: 'medium', details: [] };
+                
+                return `
+                    <div class="change-item ${isCurrent ? 'current' : ''} ${isProcessed ? 'processed' : ''}" data-index="${index}">
+                        <div class="change-header">
+                            <div class="change-info">
+                                <a href="https://en.wikipedia.org/wiki/${encodeURIComponent(change.title)}" target="_blank" class="change-title">${change.title}</a>
+                                <div class="change-meta">
+                                    By <a href="https://en.wikipedia.org/wiki/User:${encodeURIComponent(change.user)}" target="_blank">${change.user}</a>
+                                    • ${new Date(change.timestamp).toLocaleString()}
+                                    • Size change: ${change.newlen - change.oldlen > 0 ? '+' : ''}${change.newlen - change.oldlen}
+                                </div>
+                                <div class="change-meta">Comment: ${change.comment || '(no comment)'}</div>
+                                
+                                <!-- Enhanced Risk Indicator -->
+                                <div class="risk-indicator">
+                                    <span class="risk-badge risk-${combined.level}">
+                                        ${combined.level.toUpperCase()} RISK
+                                    </span>
+                                    <span style="font-size: 13px; color: #666;">
+                                        Confidence: ${(combined.score * 100).toFixed(1)}%
+                                    </span>
+                                    <div class="confidence-meter">
+                                        <div class="confidence-fill confidence-${combined.level}" style="width: ${combined.score * 100}%"></div>
+                            </div>
+                                </div>
+                                
+                                <!-- Detection Details -->
+                                <div class="detection-details">
+                                    ${renderDetectionDetails(analysis)}
+                                </div>
+                            </div>
+                            <div class="ores-score ${getOresClass(combined.score)}">
+                                Combined: ${(combined.score * 100).toFixed(1)}%
+                                <br>
+                                <small style="font-size: 10px;">
+                                    ORES: ${analysis.ores && analysis.ores.damaging ? (analysis.ores.damaging.score * 100).toFixed(0) : 'N/A'}%
+                                </small>
+                            </div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="btn-danger" onclick="setCurrentAndRevert(${index})">Revert</button>
+                            <button class="btn-success" onclick="setCurrentAndMarkGood(${index})">Good</button>
+                            <button class="btn-secondary" onclick="setCurrentAndViewDiff(${index})">Diff</button>
+                            <button class="btn-secondary" onclick="setCurrentAndWarnUser(${index})">Warn</button>
+                            ${isProcessed ? '<span style="color: #666; margin-left: 10px;">✓ Processed</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateCurrentHighlight();
+        }
+
+        // Render detection details
+        function renderDetectionDetails(analysis) {
+            const details = [];
+            
+            if (analysis.ores && analysis.ores.damaging) {
+                details.push(`
+                    <div class="detection-item">
+                        <span>ORES Damaging:</span>
+                        <span>${(analysis.ores.damaging.score * 100).toFixed(1)}%</span>
+                    </div>
+                `);
+            }
+            
+            if (analysis.ores && analysis.ores.goodfaith) {
+                details.push(`
+                    <div class="detection-item">
+                        <span>ORES Goodfaith:</span>
+                        <span>${(analysis.ores.goodfaith.score * 100).toFixed(1)}%</span>
+                    </div>
+                `);
+            }
+            
+            if (analysis.content && analysis.content.score > 0) {
+                details.push(`
+                    <div class="detection-item">
+                        <span>Content Issues:</span>
+                        <span>${analysis.content.details.join(', ')}</span>
+                    </div>
+                `);
+            }
+            
+            if (analysis.patterns && analysis.patterns.score > 0) {
+                details.push(`
+                    <div class="detection-item">
+                        <span>Pattern Issues:</span>
+                        <span>${analysis.patterns.details.join(', ')}</span>
+                    </div>
+                `);
+            }
+            
+            if (analysis.user && analysis.user.score > 0) {
+                details.push(`
+                    <div class="detection-item">
+                        <span>User Factors:</span>
+                        <span>${analysis.user.details.join(', ')}</span>
+                    </div>
+                `);
+            }
+            
+            // Add AI analysis section
+            if (analysis.ai) {
+                details.push(renderAIAnalysis(analysis.ai));
+            }
+            
+            if (details.length === 0) {
+                details.push(`
+                    <div class="detection-item">
+                        <span>No issues detected</span>
+                        <span>✓</span>
+                    </div>
+                `);
+            }
+            
+            return details.join('');
+        }
+
+        // Render AI analysis results
+        function renderAIAnalysis(aiAnalysis) {
+            if (aiAnalysis.error) {
+                return `
+                    <div class="ai-context-card">
+                        <div class="ai-context-header">
+                            <span>🤖 AI Analysis</span>
+                            <span class="ai-score">Error</span>
+                        </div>
+                        <div class="ai-error">${aiAnalysis.error}</div>
+                    </div>
+                `;
+            }
+            
+            if (!aiAnalysis.providers || aiAnalysis.providers.length === 0) {
+                return '';
+            }
+            
+            const verdictClass = aiAnalysis.verdict === 'vandalism' ? 'vandalism' : 
+                               aiAnalysis.verdict === 'suspicious' ? 'suspicious' : 'legitimate';
+            
+            const confidencePercent = (aiAnalysis.confidence * 100).toFixed(1);
+            
+            return `
+                <div class="ai-context-card">
+                    <div class="ai-context-header">
+                        <span>🤖 AI Analysis (${aiAnalysis.providers.join(', ')})</span>
+                        <span class="ai-score ${verdictClass}">${aiAnalysis.verdict.toUpperCase()}</span>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin: 4px 0;">
+                        Confidence: ${confidencePercent}%
+                    </div>
+                    <div class="ai-reasoning">
+                        ${renderAIReasoning(aiAnalysis)}
+                    </div>
+                    ${renderIndividualAIResults(aiAnalysis.individual)}
+                </div>
+            `;
+        }
+
+        // Render AI reasoning
+        function renderAIReasoning(aiAnalysis) {
+            if (aiAnalysis.reasoning && aiAnalysis.reasoning.length > 0) {
+                return aiAnalysis.reasoning.join('<br>');
+            }
+            return 'Analysis completed without specific concerns identified.';
+        }
+
+        // Render individual AI provider results
+        function renderIndividualAIResults(individualResults) {
+            if (!individualResults || individualResults.length === 0) {
+                return '';
+            }
+            
+            const results = individualResults.map(result => {
+                const confidence = (result.confidence * 100).toFixed(1);
+                const verdictClass = result.verdict === 'vandalism' ? 'vandalism' : 
+                                   result.verdict === 'suspicious' ? 'suspicious' : 'legitimate';
+                
+                return `
+                    <div style="margin-top: 8px; padding: 6px; background-color: #f8f9fa; border-radius: 3px; font-size: 11px;">
+                        <strong>${result.provider}:</strong> 
+                        <span class="ai-score ${verdictClass}" style="margin-left: 4px;">${result.verdict}</span>
+                        <span style="margin-left: 4px;">(${confidence}%)</span>
+                        ${result.reasoning ? `<br><span style="color: #666; font-style: italic;">${result.reasoning}</span>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            return `
+                <div style="margin-top: 8px;">
+                    <div style="font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px;">Individual Results:</div>
+                    ${results}
+                </div>
+            `;
+        }
+
+        // Helper functions for action buttons with index setting
+        function setCurrentAndRevert(index) {
+            currentIndex = index;
+            updateCurrentHighlight();
+            revertCurrent();
+        }
+
+        function setCurrentAndMarkGood(index) {
+            currentIndex = index;
+            updateCurrentHighlight();
+            markGood();
+        }
+
+        function setCurrentAndViewDiff(index) {
+            currentIndex = index;
+            updateCurrentHighlight();
+            openDiff();
+        }
+
+        function setCurrentAndWarnUser(index) {
+            currentIndex = index;
+            updateCurrentHighlight();
+            warnUser();
+        }
+
+        // Get ORES score class
+        function getOresClass(score) {
+            if (score >= 0.7) return 'ores-high';
+            if (score >= 0.4) return 'ores-medium';
+            return 'ores-low';
+        }
+
+        // Update current highlight
+        function updateCurrentHighlight() {
+            document.querySelectorAll('.change-item').forEach((item, index) => {
+                item.classList.toggle('current', index === currentIndex);
+            });
+            
+            // Scroll to current item
+            const currentItem = document.querySelector('.change-item.current');
+            if (currentItem) {
+                currentItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Navigation
+        function navigateNext() {
+            if (currentIndex < recentChanges.length - 1) {
+                currentIndex++;
+                updateCurrentHighlight();
+            }
+        }
+
+        function navigatePrevious() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateCurrentHighlight();
+            }
+        }
+
+        // Actions
+        async function revertCurrent() {
+            if (!authState.isLoggedIn) {
+                showStatus('Please log in to Wikipedia first', 'error');
+                return;
+            }
+            revertChange(currentIndex);
+        }
+
+        async function revertChange(index) {
+            const change = recentChanges[index];
+            
+            if (!authState.isLoggedIn) {
+                showStatus('Please log in to Wikipedia first', 'error');
+                return;
+            }
+
+            showStatus(`Reverting ${change.title}...`);
+            
+            try {
+                // Get the current revision and the previous one
+                const pageResponse = await makeAPICall({
+                    action: 'query',
+                    prop: 'revisions',
+                    titles: change.title,
+                    rvprop: 'content|ids',
+                    rvlimit: 2,
+                    rvstartid: change.revid,
+                    format: 'json'
+                });
+
+                const pages = pageResponse.query.pages;
+                const page = Object.values(pages)[0];
+                
+                if (page.missing) {
+                    showStatus('Page not found', 'error');
+                    return;
+                }
+
+                const revisions = page.revisions;
+                if (revisions.length < 2) {
+                    showStatus('Cannot revert: no previous revision found', 'error');
+                    return;
+                }
+
+                // Get previous revision content
+                const previousContent = revisions[1]['*'];
+                const csrfToken = await getCSRFToken();
+
+                // Get custom summary if provided
+                const customSummary = document.getElementById('revertSummary').value.trim();
+                const defaultSummary = `Reverted edit by [[User:${change.user}|${change.user}]] ([[User talk:${change.user}|talk]] | [[Special:Contributions/${change.user}|contribs]]) - using RC Patrol tool`;
+                const editSummary = customSummary ? `${defaultSummary}: ${customSummary}` : defaultSummary;
+
+                // Perform the revert edit
+                const editResponse = await makeAPICall({
+                    action: 'edit',
+                    title: change.title,
+                    text: previousContent,
+                    summary: editSummary,
+                    token: csrfToken,
+                    format: 'json'
+                }, 'POST');
+
+                if (editResponse.edit && editResponse.edit.result === 'Success') {
+                processedRevisions.add(change.revid);
+                    showStatus(`Successfully reverted ${change.title}`);
+                renderChanges();
+                navigateNext();
+                } else {
+                    showStatus(`Failed to revert: ${editResponse.error?.info || 'Unknown error'}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error reverting change:', error);
+                showStatus(`Error reverting: ${error.message}`, 'error');
+            }
+        }
+
+        function markGood() {
+            markChangeGood(currentIndex);
+        }
+
+        function markChangeGood(index) {
+            const change = recentChanges[index];
+            processedRevisions.add(change.revid);
+            showStatus(`Marked ${change.title} as good`);
+            renderChanges();
+            navigateNext();
+        }
+
+        function skipCurrent() {
+            navigateNext();
+        }
+
+        function openDiff() {
+            viewDiff(currentIndex);
+        }
+
+        function viewDiff(index) {
+            const change = recentChanges[index];
+            window.open(`https://en.wikipedia.org/w/index.php?title=${encodeURIComponent(change.title)}&diff=${change.revid}&oldid=${change.old_revid}`, '_blank');
+        }
+
+        function warnUser() {
+            warnUserFor(currentIndex);
+        }
+
+        async function warnUserFor(index) {
+            const change = recentChanges[index];
+            
+            if (!authState.isLoggedIn) {
+                showStatus('Please log in to Wikipedia first', 'error');
+                return;
+            }
+
+            showStatus(`Checking ${change.user}'s talk page...`);
+            
+            try {
+                // Check if user talk page exists and get current content
+                const talkPageTitle = `User talk:${change.user}`;
+                const pageResponse = await makeAPICall({
+                    action: 'query',
+                    prop: 'revisions',
+                    titles: talkPageTitle,
+                    rvprop: 'content',
+                    rvlimit: 1,
+                    format: 'json'
+                });
+
+                const pages = pageResponse.query.pages;
+                const page = Object.values(pages)[0];
+                
+                let currentContent = '';
+                if (!page.missing && page.revisions) {
+                    currentContent = page.revisions[0]['*'];
+                }
+
+                // Check for existing warnings
+                const hasRecentWarning = currentContent.includes('{{subst:uw-') || 
+                                       currentContent.includes('{{uw-') ||
+                                       currentContent.includes('Please stop');
+
+                // Use selected warning level
+                let warningTemplate;
+                const level = selectedWarningLevel;
+                
+                if (level === 4) {
+                    warningTemplate = '{{subst:uw-vandalism4|' + change.title + '}} ~~~~';
+                } else if (level === 3) {
+                    warningTemplate = '{{subst:uw-vandalism3|' + change.title + '}} ~~~~';
+                } else if (level === 2) {
+                    warningTemplate = '{{subst:uw-vandalism2|' + change.title + '}} ~~~~';
+                } else {
+                    warningTemplate = '{{subst:uw-vandalism1|' + change.title + '}} ~~~~';
+                }
+
+                const newContent = currentContent + '\n\n== Warning ==\n' + warningTemplate;
+                const csrfToken = await getCSRFToken();
+
+                // Add warning to user talk page
+                const editResponse = await makeAPICall({
+                    action: 'edit',
+                    title: talkPageTitle,
+                    text: newContent,
+                    summary: `Warning about edit to [[${change.title}]] - using RC Patrol tool`,
+                    token: csrfToken,
+                    format: 'json'
+                }, 'POST');
+
+                if (editResponse.edit && editResponse.edit.result === 'Success') {
+                    showStatus(`Warning added to ${change.user}'s talk page`);
+                    processedRevisions.add(change.revid);
+                    renderChanges();
+                } else {
+                    showStatus(`Failed to warn user: ${editResponse.error?.info || 'Unknown error'}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error warning user:', error);
+                showStatus(`Error warning user: ${error.message}`, 'error');
+            }
+        }
+
+        // Keyboard shortcuts
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Don't trigger shortcuts when typing in inputs
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                switch(e.key.toLowerCase()) {
+                    case 'arrowdown':
+                    case 'j':
+                        e.preventDefault();
+                        navigateNext();
+                        break;
+                    case 'arrowup':
+                    case 'k':
+                        e.preventDefault();
+                        navigatePrevious();
+                        break;
+                    case 'v':
+                        e.preventDefault();
+                        revertCurrent();
+                        break;
+                    case 'g':
+                        e.preventDefault();
+                        markGood();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        skipCurrent();
+                        break;
+                    case 'd':
+                        e.preventDefault();
+                        openDiff();
+                        break;
+                    case 'w':
+                        e.preventDefault();
+                        warnUser();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        refreshChanges();
+                        break;
+                }
+            });
+        }
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.classList.add('show');
+            
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 3000);
+        }
+
+        // Warning level management
+        let selectedWarningLevel = 1;
+
+        function setWarningLevel(level) {
+            selectedWarningLevel = level;
+            // Update button appearance
+            document.querySelectorAll('.warning-templates button').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            });
+            event.target.classList.remove('btn-secondary');
+            event.target.classList.add('btn-primary');
+            showStatus(`Warning level set to ${level}`);
+        }
+
+        function updateDetectionDisplay() {
+            // Re-analyze current changes with new settings
+            if (recentChanges.length > 0) {
+                renderChanges();
+            }
+        }
+
+        // Enhanced ORES Analysis with batching
+        async function getEnhancedORESScores(revIds) {
+            try {
+                // ORES API has a limit on the number of revisions per request
+                // Split into batches of 10 to be safe
+                const BATCH_SIZE = 10;
+                const revIdArray = revIds.split('|');
+                const batches = [];
+                
+                for (let i = 0; i < revIdArray.length; i += BATCH_SIZE) {
+                    batches.push(revIdArray.slice(i, i + BATCH_SIZE));
+                }
+                
+                // Process batches in parallel
+                const batchPromises = batches.map(async (batch) => {
+                    const models = 'damaging|goodfaith';
+                    const batchIds = batch.join('|');
+                    const oresResponse = await fetch(`https://ores.wikimedia.org/v3/scores/enwiki?models=${models}&revids=${batchIds}`);
+                    
+                    if (!oresResponse.ok) {
+                        console.warn(`ORES batch request failed with status ${oresResponse.status} for revids: ${batchIds}`);
+                        return null;
+                    }
+                    
+                    return await oresResponse.json();
+                });
+                
+                const batchResults = await Promise.all(batchPromises);
+                
+                // Merge all batch results
+                const mergedData = {
+                    enwiki: {
+                        models: {
+                            damaging: { version: '' },
+                            goodfaith: { version: '' }
+                        },
+                        scores: {}
+                    }
+                };
+                
+                for (const batchData of batchResults) {
+                    if (batchData && batchData.enwiki && batchData.enwiki.scores) {
+                        // Copy model versions from first successful batch
+                        if (mergedData.enwiki.models.damaging.version === '') {
+                            mergedData.enwiki.models = batchData.enwiki.models;
+                        }
+                        
+                        // Merge scores
+                        Object.assign(mergedData.enwiki.scores, batchData.enwiki.scores);
+                    }
+                }
+                
+                return mergedData;
+            } catch (error) {
+                console.warn('ORES service unavailable:', error);
+                return null;
+            }
+        }
+
+        // Content Analysis Functions
+        function analyzeContent(text) {
+            if (!detectionConfig.enableContentAnalysis || !text) {
+                return { score: 0, details: [] };
+            }
+
+            const analysis = {
+                score: 0,
+                details: [],
+                patterns: {}
+            };
+
+            // Check for profanity
+            const profanityMatches = text.match(vandalismPatterns.profanity);
+            if (profanityMatches) {
+                analysis.score += 0.3;
+                analysis.details.push(`Profanity detected (${profanityMatches.length} instances)`);
+                analysis.patterns.profanity = profanityMatches.length;
+            }
+
+            // Check for gibberish
+            const gibberishMatches = text.match(vandalismPatterns.gibberish);
+            if (gibberishMatches) {
+                analysis.score += 0.2;
+                analysis.details.push(`Gibberish patterns detected`);
+                analysis.patterns.gibberish = gibberishMatches.length;
+            }
+
+            // Check for caps spam
+            const capsMatches = text.match(vandalismPatterns.capsSpam);
+            if (capsMatches) {
+                analysis.score += 0.15;
+                analysis.details.push(`Excessive capitals detected`);
+                analysis.patterns.capsSpam = capsMatches.length;
+            }
+
+            // Check for repeated characters
+            const repeatedMatches = text.match(vandalismPatterns.repeatedChars);
+            if (repeatedMatches) {
+                analysis.score += 0.1;
+                analysis.details.push(`Repeated character spam`);
+                analysis.patterns.repeatedChars = repeatedMatches.length;
+            }
+
+            // Check for nonsense words
+            const nonsenseMatches = text.match(vandalismPatterns.nonsenseWords);
+            if (nonsenseMatches) {
+                analysis.score += 0.2;
+                analysis.details.push(`Nonsense words detected`);
+                analysis.patterns.nonsenseWords = nonsenseMatches.length;
+            }
+
+            // Check for excessive punctuation
+            const punctuationMatches = text.match(vandalismPatterns.excessivePunctuation);
+            if (punctuationMatches) {
+                analysis.score += 0.1;
+                analysis.details.push(`Excessive punctuation`);
+                analysis.patterns.excessivePunctuation = punctuationMatches.length;
+            }
+
+            // Check for link spam
+            const linkMatches = text.match(vandalismPatterns.linkSpam);
+            if (linkMatches && linkMatches.length > 3) {
+                analysis.score += 0.25;
+                analysis.details.push(`Potential link spam (${linkMatches.length} links)`);
+                analysis.patterns.linkSpam = linkMatches.length;
+            }
+
+            // Check for email spam
+            const emailMatches = text.match(vandalismPatterns.emailSpam);
+            if (emailMatches) {
+                analysis.score += 0.2;
+                analysis.details.push(`Email addresses detected`);
+                analysis.patterns.emailSpam = emailMatches.length;
+            }
+
+            return analysis;
+        }
+
+        // Pattern Detection Functions
+        function analyzeEditPatterns(change, newContent = '', oldContent = '') {
+            if (!detectionConfig.enablePatternDetection) {
+                return { score: 0, details: [] };
+            }
+
+            const analysis = {
+                score: 0,
+                details: [],
+                patterns: {}
+            };
+
+            // Analyze size changes
+            const sizeChange = change.newlen - change.oldlen;
+            const sizeLimits = {
+                low: 5000,
+                medium: 2000,
+                high: 500
+            };
+            const currentLimit = sizeLimits[detectionConfig.sizeChangeSensitivity];
+
+            if (Math.abs(sizeChange) > currentLimit) {
+                if (sizeChange < 0) {
+                    analysis.score += 0.3;
+                    analysis.details.push(`Large deletion (${Math.abs(sizeChange)} chars)`);
+                    analysis.patterns.largeDeletion = Math.abs(sizeChange);
+                } else {
+                    analysis.score += 0.15;
+                    analysis.details.push(`Large addition (${sizeChange} chars)`);
+                    analysis.patterns.largeAddition = sizeChange;
+                }
+            }
+
+            // Check for blanking if we have content
+            if (newContent !== '' && destructivePatterns.blankingIndicators.test(newContent)) {
+                analysis.score += 0.8;
+                analysis.details.push('Page blanking detected');
+                analysis.patterns.blanking = true;
+            }
+
+            // Check for category removal
+            if (oldContent && newContent) {
+                const oldCategories = (oldContent.match(destructivePatterns.categoryRemoval) || []).length;
+                const newCategories = (newContent.match(destructivePatterns.categoryRemoval) || []).length;
+                if (oldCategories > newCategories + 2) {
+                    analysis.score += 0.4;
+                    analysis.details.push(`Category removal (${oldCategories - newCategories} removed)`);
+                    analysis.patterns.categoryRemoval = oldCategories - newCategories;
+                }
+            }
+
+            // Check for template/infobox removal
+            if (oldContent && newContent) {
+                const oldTemplates = (oldContent.match(destructivePatterns.templateRemoval) || []).length;
+                const newTemplates = (newContent.match(destructivePatterns.templateRemoval) || []).length;
+                if (oldTemplates > newTemplates + 1) {
+                    analysis.score += 0.3;
+                    analysis.details.push(`Template removal detected`);
+                    analysis.patterns.templateRemoval = oldTemplates - newTemplates;
+                }
+
+                const oldInfoboxes = (oldContent.match(destructivePatterns.infoboxRemoval) || []).length;
+                const newInfoboxes = (newContent.match(destructivePatterns.infoboxRemoval) || []).length;
+                if (oldInfoboxes > newInfoboxes) {
+                    analysis.score += 0.5;
+                    analysis.details.push(`Infobox removal detected`);
+                    analysis.patterns.infoboxRemoval = true;
+                }
+            }
+
+            // Check for reference removal
+            if (oldContent && newContent) {
+                const oldRefs = (oldContent.match(destructivePatterns.referenceRemoval) || []).length;
+                const newRefs = (newContent.match(destructivePatterns.referenceRemoval) || []).length;
+                if (oldRefs > newRefs + 2) {
+                    analysis.score += 0.3;
+                    analysis.details.push(`Reference removal (${oldRefs - newRefs} removed)`);
+                    analysis.patterns.referenceRemoval = oldRefs - newRefs;
+                }
+            }
+
+            return analysis;
+        }
+
+        // User Analysis Functions
+        async function analyzeUser(username) {
+            if (detectionConfig.newUserDetection === 'disabled') {
+                return { score: 0, details: [] };
+            }
+
+            try {
+                const analysis = {
+                    score: 0,
+                    details: [],
+                    userData: {}
+                };
+
+                // Check if IP user
+                const isIP = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(username);
+                if (isIP) {
+                    analysis.score += 0.2;
+                    analysis.details.push('Anonymous IP user');
+                    analysis.userData.isIP = true;
+                    return analysis;
+                }
+
+                // Get user information
+                const userResponse = await makeAPICall({
+                    action: 'query',
+                    list: 'users',
+                    ususers: username,
+                    usprop: 'editcount|registration|groups',
+                    format: 'json'
+                }, 'GET', false);
+
+                const user = userResponse.query.users[0];
+                if (user.missing) {
+                    analysis.score += 0.4;
+                    analysis.details.push('User account does not exist');
+                    return analysis;
+                }
+
+                analysis.userData = user;
+
+                // Check edit count
+                const editCount = user.editcount || 0;
+                const strictThreshold = detectionConfig.newUserDetection === 'strict' ? 100 : 10;
+
+                if (editCount < strictThreshold) {
+                    const newUserScore = editCount < 5 ? 0.3 : 0.15;
+                    analysis.score += newUserScore;
+                    analysis.details.push(`New user (${editCount} edits)`);
+                }
+
+                // Check registration date
+                if (user.registration) {
+                    const regDate = new Date(user.registration);
+                    const daysSinceReg = (Date.now() - regDate.getTime()) / (1000 * 60 * 60 * 24);
+                    if (daysSinceReg < 7) {
+                        analysis.score += 0.2;
+                        analysis.details.push(`Very new account (${Math.floor(daysSinceReg)} days)`);
+                    }
+                }
+
+                return analysis;
+            } catch (error) {
+                console.error('Error analyzing user:', error);
+                return { score: 0, details: ['User analysis failed'] };
+            }
+        }
+
+        // Combined Risk Assessment
+        function calculateCombinedRisk(change, oresScores, contentAnalysis, patternAnalysis, userAnalysis) {
+            const weights = {
+                ores: 0.4,
+                content: 0.25,
+                patterns: 0.25,
+                user: 0.1
+            };
+
+            let combinedScore = 0;
+            const details = [];
+
+            // ORES scores
+            if (oresScores && oresScores.damaging) {
+                const damagingScore = oresScores.damaging.score;
+                const goodfaithScore = oresScores.goodfaith ? (1 - oresScores.goodfaith.score) : 0.5;
+                const oresRisk = Math.max(damagingScore, goodfaithScore);
+                combinedScore += oresRisk * weights.ores;
+                details.push(`ORES Risk: ${(oresRisk * 100).toFixed(1)}%`);
+            }
+
+            // Content analysis
+            if (contentAnalysis && contentAnalysis.score > 0) {
+                const contentRisk = Math.min(contentAnalysis.score, 1);
+                combinedScore += contentRisk * weights.content;
+                details.push(`Content Risk: ${(contentRisk * 100).toFixed(1)}%`);
+            }
+
+            // Pattern analysis
+            if (patternAnalysis && patternAnalysis.score > 0) {
+                const patternRisk = Math.min(patternAnalysis.score, 1);
+                combinedScore += patternRisk * weights.patterns;
+                details.push(`Pattern Risk: ${(patternRisk * 100).toFixed(1)}%`);
+            }
+
+            // User analysis
+            if (userAnalysis && userAnalysis.score > 0) {
+                const userRisk = Math.min(userAnalysis.score, 1);
+                combinedScore += userRisk * weights.user;
+                details.push(`User Risk: ${(userRisk * 100).toFixed(1)}%`);
+            }
+
+            const riskLevel = combinedScore >= 0.8 ? 'critical' : 
+                             combinedScore >= 0.6 ? 'high' : 
+                             combinedScore >= 0.4 ? 'medium' : 'low';
+
+            return {
+                score: Math.min(combinedScore, 1),
+                level: riskLevel,
+                details: details,
+                components: {
+                    ores: oresScores,
+                    content: contentAnalysis,
+                    patterns: patternAnalysis,
+                    user: userAnalysis
+                }
+            };
+        }
+
+        // Setup AI configuration
+        function setupAIConfig() {
+            // Load saved API keys first
+            loadSavedAPIKeys();
+            
+            // Setup provider toggles
+            document.getElementById('enableHuggingFace').addEventListener('change', (e) => {
+                aiConfig.enableHuggingFace = e.target.checked;
+                updateAIProviderUI('hf-provider', e.target.checked);
+            });
+            
+            document.getElementById('enableOpenAI').addEventListener('change', (e) => {
+                aiConfig.enableOpenAI = e.target.checked;
+                updateAIProviderUI('openai-provider', e.target.checked);
+            });
+            
+            document.getElementById('enableGoogle').addEventListener('change', (e) => {
+                aiConfig.enableGoogle = e.target.checked;
+                updateAIProviderUI('google-provider', e.target.checked);
+            });
+            
+            document.getElementById('enableLocal').addEventListener('change', (e) => {
+                aiConfig.enableLocal = e.target.checked;
+                updateAIProviderUI('local-provider', e.target.checked);
+            });
+            
+            // Setup configuration selects
+            document.getElementById('aiAnalysisMode').addEventListener('change', (e) => {
+                aiConfig.analysisMode = e.target.value;
+            });
+            
+            document.getElementById('rateLimitMode').addEventListener('change', (e) => {
+                aiConfig.rateLimitMode = e.target.value;
+            });
+            
+            // Initialize UI
+            updateAIProviderUI('hf-provider', aiConfig.enableHuggingFace);
+            updateProviderAvailability();
+        }
+        
+        function updateAIProviderUI(providerId, enabled) {
+            const providerEl = document.getElementById(providerId);
+            if (enabled) {
+                providerEl.classList.add('enabled');
+            } else {
+                providerEl.classList.remove('enabled');
+            }
+        }
+
+        // ========== AI ANALYSIS FUNCTIONS ==========
+
+        // Hugging Face API Integration
+        async function analyzeWithHuggingFace(text, analysisType = 'comprehensive') {
+            if (!aiConfig.enableHuggingFace || !rateLimiter.canMakeRequest('huggingface')) {
+                return null;
+            }
+            
+            try {
+                rateLimiter.recordRequest('huggingface');
+                
+                const results = {};
+                
+                // Text toxicity analysis
+                if (analysisType === 'comprehensive' || analysisType === 'deep') {
+                    const toxicityResult = await callHuggingFaceAPI(
+                        huggingFaceModels.textClassification,
+                        text,
+                        'text-classification'
+                    );
+                    results.toxicity = toxicityResult;
+                }
+                
+                // Sentiment analysis
+                const sentimentResult = await callHuggingFaceAPI(
+                    huggingFaceModels.sentiment,
+                    text,
+                    'text-classification'
+                );
+                results.sentiment = sentimentResult;
+                
+                // Coherence check for deep analysis
+                if (analysisType === 'deep') {
+                    const coherenceResult = await callHuggingFaceAPI(
+                        huggingFaceModels.coherence,
+                        text,
+                        'feature-extraction'
+                    );
+                    results.coherence = coherenceResult;
+                }
+                
+                return {
+                    provider: 'Hugging Face',
+                    analysis: results,
+                    confidence: calculateHFConfidence(results),
+                    verdict: getHFVerdict(results),
+                    reasoning: generateHFReasoning(results)
+                };
+                
+            } catch (error) {
+                console.error('Hugging Face analysis error:', error);
+                return {
+                    provider: 'Hugging Face',
+                    error: 'Analysis failed: ' + error.message
+                };
+            }
+        }
+
+        // Hugging Face API call helper
+        async function callHuggingFaceAPI(model, text, task) {
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            
+            if (aiConfig.apiKeys.huggingface) {
+                headers['Authorization'] = `Bearer ${aiConfig.apiKeys.huggingface}`;
+            }
+            
+            const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({
+                    inputs: text,
+                    options: { wait_for_model: true }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HF API error: ${response.status}`);
+            }
+            
+            return await response.json();
+        }
+
+        // OpenAI Analysis (optional)
+        async function analyzeWithOpenAI(text, oldText = '', editSummary = '') {
+            if (!aiConfig.enableOpenAI || !rateLimiter.canMakeRequest('openai')) {
+                return null;
+            }
+            
+            try {
+                rateLimiter.recordRequest('openai');
+                
+                const prompt = `Analyze this Wikipedia edit for potential vandalism:
+
+OLD TEXT: ${oldText.substring(0, 500)}...
+NEW TEXT: ${text.substring(0, 500)}...
+EDIT SUMMARY: ${editSummary}
+
+Provide:
+1. Legitimacy score (0-100)
+2. Verdict (legitimate/suspicious/vandalism)
+3. Brief reasoning
+
+Format: SCORE|VERDICT|REASONING`;
+
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${aiConfig.apiKeys.openai}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-3.5-turbo',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: 'You are a Wikipedia vandalism detection expert. Analyze edits objectively and concisely.'
+                            },
+                            {
+                                role: 'user',
+                                content: prompt
+                            }
+                        ],
+                        max_tokens: 200,
+                        temperature: 0.3
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`OpenAI API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+                const parts = content.split('|');
+                
+                return {
+                    provider: 'OpenAI GPT-3.5',
+                    confidence: parseInt(parts[0]) / 100,
+                    verdict: parts[1]?.toLowerCase() || 'unknown',
+                    reasoning: parts[2] || 'No reasoning provided',
+                    rawResponse: content
+                };
+                
+            } catch (error) {
+                console.error('OpenAI analysis error:', error);
+                return {
+                    provider: 'OpenAI',
+                    error: 'Analysis failed: ' + error.message
+                };
+            }
+        }
+
+        // OpenAI Moderation API (FREE) - Specifically designed for content safety
+        async function analyzeWithOpenAIModeration(text) {
+            if (!rateLimiter.canMakeRequest('openai-moderation')) {
+                return null;
+            }
+            
+            try {
+                rateLimiter.recordRequest('openai-moderation');
+                
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                // API key is optional for moderation endpoint, but provides better rate limits
+                if (aiConfig.apiKeys.openai) {
+                    headers['Authorization'] = `Bearer ${aiConfig.apiKeys.openai}`;
+                }
+                
+                const response = await fetch('https://api.openai.com/v1/moderations', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        input: text,
+                        model: 'text-moderation-latest' // Use latest moderation model
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`OpenAI Moderation API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const result = data.results[0];
+                
+                if (!result) {
+                    throw new Error('No moderation results returned');
+                }
+                
+                // Analyze the moderation results
+                const flaggedCategories = [];
+                const categoryScores = {};
+                let maxScore = 0;
+                
+                Object.keys(result.categories).forEach(category => {
+                    const isFlagged = result.categories[category];
+                    const score = result.category_scores[category];
+                    
+                    categoryScores[category] = score;
+                    if (score > maxScore) {
+                        maxScore = score;
+                    }
+                    
+                    if (isFlagged) {
+                        flaggedCategories.push(category);
+                    }
+                });
+                
+                // Determine verdict based on flagged categories and scores
+                let verdict = 'legitimate';
+                let reasoning = 'Content passed all safety checks';
+                
+                if (result.flagged) {
+                    // Categorize severity based on the type of violations
+                    const severeCategories = ['violence/graphic', 'hate/threatening', 'harassment/threatening', 'sexual/minors', 'self-harm/intent'];
+                    const moderateCategories = ['violence', 'hate', 'harassment', 'sexual', 'self-harm'];
+                    
+                    const hasSevere = flaggedCategories.some(cat => severeCategories.includes(cat));
+                    const hasModerate = flaggedCategories.some(cat => moderateCategories.includes(cat));
+                    
+                    if (hasSevere || maxScore > 0.8) {
+                        verdict = 'vandalism';
+                        reasoning = `Severe content violations detected: ${flaggedCategories.join(', ')}`;
+                    } else if (hasModerate || maxScore > 0.5) {
+                        verdict = 'suspicious';
+                        reasoning = `Moderate content concerns: ${flaggedCategories.join(', ')}`;
+                    } else {
+                        verdict = 'suspicious';
+                        reasoning = `Minor content flags: ${flaggedCategories.join(', ')}`;
+                    }
+                } else if (maxScore > 0.3) {
+                    verdict = 'suspicious';
+                    reasoning = `Elevated risk scores detected (max: ${(maxScore * 100).toFixed(1)}%)`;
+                }
+                
+                return {
+                    provider: 'OpenAI Moderation (Free)',
+                    confidence: maxScore,
+                    verdict: verdict,
+                    reasoning: reasoning,
+                    flaggedCategories: flaggedCategories,
+                    categoryScores: categoryScores,
+                    details: {
+                        flagged: result.flagged,
+                        categories: result.categories,
+                        scores: result.category_scores
+                    }
+                };
+                
+            } catch (error) {
+                console.error('OpenAI Moderation analysis error:', error);
+                return {
+                    provider: 'OpenAI Moderation',
+                    error: 'Analysis failed: ' + error.message
+                };
+            }
+        }
+
+        // Local Model Analysis (using basic heuristics and patterns)
+        function analyzeWithLocalModels(text, oldText = '', change = {}) {
+            if (!aiConfig.enableLocal) {
+                return null;
+            }
+            
+            const analysis = {
+                provider: 'Local Models',
+                confidence: 0,
+                verdict: 'legitimate',
+                reasoning: '',
+                details: {}
+            };
+            
+            let suspicionScore = 0;
+            const reasons = [];
+            
+            // Pattern-based analysis
+            const textLength = text.length;
+            const sizeChange = change.newlen - change.oldlen;
+            
+            // Check for suspicious patterns
+            if (vandalismPatterns.profanity.test(text)) {
+                suspicionScore += 0.4;
+                reasons.push('Profanity detected');
+            }
+            
+            if (vandalismPatterns.gibberish.test(text)) {
+                suspicionScore += 0.3;
+                reasons.push('Gibberish patterns found');
+            }
+            
+            if (vandalismPatterns.capsSpam.test(text)) {
+                suspicionScore += 0.2;
+                reasons.push('Excessive capitals');
+            }
+            
+            if (vandalismPatterns.repeatedChars.test(text)) {
+                suspicionScore += 0.2;
+                reasons.push('Character repetition');
+            }
+            
+            // Size-based analysis
+            if (Math.abs(sizeChange) > 5000) {
+                suspicionScore += 0.2;
+                reasons.push(`Large size change (${sizeChange} chars)`);
+            }
+            
+            // Coherence check (basic)
+            const wordCount = text.split(/\s+/).length;
+            const avgWordLength = textLength / Math.max(wordCount, 1);
+            if (avgWordLength < 2 || avgWordLength > 15) {
+                suspicionScore += 0.1;
+                reasons.push('Unusual word patterns');
+            }
+            
+            analysis.confidence = Math.min(suspicionScore, 1);
+            analysis.verdict = suspicionScore > 0.6 ? 'vandalism' : 
+                             suspicionScore > 0.3 ? 'suspicious' : 'legitimate';
+            analysis.reasoning = reasons.length > 0 ? reasons.join('; ') : 'No suspicious patterns detected';
+            
+            return analysis;
+        }
+
+        // AI Analysis Orchestrator
+        async function performAIAnalysis(change, newContent = '', oldContent = '') {
+            const analyses = [];
+            
+            // Combine content for analysis
+            const analysisText = newContent || change.comment || '';
+            if (!analysisText.trim()) {
+                return null;
+            }
+            
+            // Run enabled AI providers in parallel
+            const promises = [];
+            
+            if (aiConfig.enableHuggingFace) {
+                promises.push(analyzeWithHuggingFace(analysisText, aiConfig.analysisMode));
+            }
+            
+            // OpenAI Moderation API (Free) - Always try this if enabled, even without API key
+            if (aiConfig.enableOpenAI) {
+                promises.push(analyzeWithOpenAIModeration(analysisText));
+            }
+            
+            // OpenAI GPT Analysis (Requires API key)
+            if (aiConfig.enableOpenAI && aiConfig.apiKeys.openai) {
+                promises.push(analyzeWithOpenAI(analysisText, oldContent, change.comment));
+            }
+            
+            if (aiConfig.enableLocal) {
+                promises.push(analyzeWithLocalModels(analysisText, oldContent, change));
+            }
+            
+            const results = await Promise.allSettled(promises);
+            
+            // Process results
+            results.forEach(result => {
+                if (result.status === 'fulfilled' && result.value && !result.value.error) {
+                    analyses.push(result.value);
+                }
+            });
+            
+            if (analyses.length === 0) {
+                return null;
+            }
+            
+            // Combine analyses
+            return combineAIAnalyses(analyses);
+        }
+
+        // Helper functions for Hugging Face analysis
+        function calculateHFConfidence(results) {
+            if (!results.sentiment || !results.sentiment[0]) return 0.5;
+            
+            const sentiment = results.sentiment[0];
+            let confidence = sentiment.score || 0.5;
+            
+            // Adjust based on toxicity if available
+            if (results.toxicity && results.toxicity[0]) {
+                const toxicity = results.toxicity[0];
+                if (toxicity.label === 'TOXIC') {
+                    confidence = Math.max(confidence, toxicity.score);
+                }
+            }
+            
+            return confidence;
+        }
+
+        function getHFVerdict(results) {
+            if (results.toxicity && results.toxicity[0]) {
+                const toxicity = results.toxicity[0];
+                if (toxicity.label === 'TOXIC' && toxicity.score > 0.7) {
+                    return 'vandalism';
+                }
+            }
+            
+            if (results.sentiment && results.sentiment[0]) {
+                const sentiment = results.sentiment[0];
+                if (sentiment.label === 'NEGATIVE' && sentiment.score > 0.8) {
+                    return 'suspicious';
+                }
+            }
+            
+            return 'legitimate';
+        }
+
+        function generateHFReasoning(results) {
+            const reasons = [];
+            
+            if (results.toxicity && results.toxicity[0]) {
+                const toxicity = results.toxicity[0];
+                reasons.push(`Toxicity: ${(toxicity.score * 100).toFixed(1)}% ${toxicity.label}`);
+            }
+            
+            if (results.sentiment && results.sentiment[0]) {
+                const sentiment = results.sentiment[0];
+                reasons.push(`Sentiment: ${(sentiment.score * 100).toFixed(1)}% ${sentiment.label}`);
+            }
+            
+            return reasons.join('; ') || 'Standard language patterns detected';
+        }
+
+        // Combine multiple AI analyses
+        function combineAIAnalyses(analyses) {
+            const combined = {
+                providers: analyses.map(a => a.provider),
+                confidence: 0,
+                verdict: 'legitimate',
+                reasoning: [],
+                individual: analyses
+            };
+            
+            // Calculate weighted average confidence
+            let totalConfidence = 0;
+            let validAnalyses = 0;
+            
+            analyses.forEach(analysis => {
+                if (typeof analysis.confidence === 'number') {
+                    totalConfidence += analysis.confidence;
+                    validAnalyses++;
+                }
+                
+                if (analysis.reasoning) {
+                    combined.reasoning.push(`${analysis.provider}: ${analysis.reasoning}`);
+                }
+            });
+            
+            combined.confidence = validAnalyses > 0 ? totalConfidence / validAnalyses : 0.5;
+            
+            // Determine overall verdict
+            const vandalismCount = analyses.filter(a => a.verdict === 'vandalism').length;
+            const suspiciousCount = analyses.filter(a => a.verdict === 'suspicious').length;
+            
+            if (vandalismCount > 0) {
+                combined.verdict = 'vandalism';
+            } else if (suspiciousCount > 0) {
+                combined.verdict = 'suspicious';
+            } else {
+                combined.verdict = 'legitimate';
+            }
+            
+            return combined;
+        }
+
+        // ========== API CONFIGURATION FUNCTIONS ==========
+
+        // Simple encryption for localStorage (basic protection)
+        const keyEncryption = {
+            // Generate a simple key based on browser fingerprint
+            getEncryptionKey() {
+                const fingerprint = navigator.userAgent + navigator.language + screen.width + screen.height;
+                return btoa(fingerprint).substring(0, 32);
+            },
+            
+            // Basic XOR encryption (better than plain text)
+            encrypt(text, key = this.getEncryptionKey()) {
+                if (!text) return '';
+                let result = '';
+                for (let i = 0; i < text.length; i++) {
+                    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                }
+                return btoa(result);
+            },
+            
+            decrypt(encryptedText, key = this.getEncryptionKey()) {
+                if (!encryptedText) return '';
+                try {
+                    const decoded = atob(encryptedText);
+                    let result = '';
+                    for (let i = 0; i < decoded.length; i++) {
+                        result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                    }
+                    return result;
+                } catch (error) {
+                    console.error('Decryption failed:', error);
+                    return '';
+                }
+            }
+        };
+
+        // API key validation
+        const keyValidation = {
+            validateHuggingFace(key) {
+                return key.startsWith('hf_') && key.length > 10;
+            },
+            
+            validateOpenAI(key) {
+                return key.startsWith('sk-') && key.length > 20;
+            },
+            
+            validateGoogle(key) {
+                return key.startsWith('AIzaSy') && key.length > 25;
+            },
+            
+            validate(provider, key) {
+                if (!key) return true; // Empty keys are allowed
+                
+                switch (provider) {
+                    case 'huggingface':
+                        return this.validateHuggingFace(key);
+                    case 'openai':
+                        return this.validateOpenAI(key);
+                    case 'google':
+                        return this.validateGoogle(key);
+                    default:
+                        return false;
+                }
+            }
+        };
+
+        // Secure storage configuration
+        let secureStorage = {
+            useSessionStorage: false, // Set to true for more security (keys deleted when browser closes)
+            encryptKeys: true,
+            keyExpiration: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+            
+            getStorageKey() {
+                return this.useSessionStorage ? 'aiApiKeys_session' : 'aiApiKeys_persistent';
+            },
+            
+            saveKeys(keys) {
+                try {
+                    const now = Date.now();
+                    const data = {
+                        keys: keys,
+                        timestamp: now,
+                        expires: now + this.keyExpiration
+                    };
+                    
+                    let storageData = JSON.stringify(data);
+                    if (this.encryptKeys) {
+                        storageData = keyEncryption.encrypt(storageData);
+                    }
+                    
+                    const storage = this.useSessionStorage ? sessionStorage : localStorage;
+                    storage.setItem(this.getStorageKey(), storageData);
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Failed to save API keys:', error);
+                    return false;
+                }
+            },
+            
+            loadKeys() {
+                try {
+                    const storage = this.useSessionStorage ? sessionStorage : localStorage;
+                    let storageData = storage.getItem(this.getStorageKey());
+                    
+                    if (!storageData) return {};
+                    
+                    if (this.encryptKeys) {
+                        storageData = keyEncryption.decrypt(storageData);
+                    }
+                    
+                    const data = JSON.parse(storageData);
+                    
+                    // Check expiration
+                    if (data.expires && Date.now() > data.expires) {
+                        this.clearKeys();
+                        return {};
+                    }
+                    
+                    return data.keys || {};
+                } catch (error) {
+                    console.error('Failed to load API keys:', error);
+                    this.clearKeys(); // Clear corrupted data
+                    return {};
+                }
+            },
+            
+            clearKeys() {
+                try {
+                    const storage = this.useSessionStorage ? sessionStorage : localStorage;
+                    storage.removeItem(this.getStorageKey());
+                    // Also clear the old unencrypted storage if it exists
+                    storage.removeItem('aiApiKeys');
+                } catch (error) {
+                    console.error('Failed to clear API keys:', error);
+                }
+            }
+        };
+
+        // Load saved API keys from secure storage
+        function loadSavedAPIKeys() {
+            try {
+                const savedKeys = secureStorage.loadKeys();
+                aiConfig.apiKeys = { ...aiConfig.apiKeys, ...savedKeys };
+            } catch (error) {
+                console.error('Error loading saved API keys:', error);
+                // Clear potentially corrupted storage
+                secureStorage.clearKeys();
+            }
+        }
+
+        // Save API keys to secure storage
+        function saveAPIKeysToStorage() {
+            // Filter out empty keys before saving
+            const keysToSave = {};
+            Object.keys(aiConfig.apiKeys).forEach(provider => {
+                if (aiConfig.apiKeys[provider] && aiConfig.apiKeys[provider].trim()) {
+                    keysToSave[provider] = aiConfig.apiKeys[provider];
+                }
+            });
+            
+            const success = secureStorage.saveKeys(keysToSave);
+            if (!success) {
+                showStatus('Failed to save API keys securely', 'error');
+            }
+        }
+
+        // Mask API key for display
+        function maskAPIKey(key) {
+            if (!key || key.length < 8) return key;
+            const visibleStart = Math.min(4, key.length - 4);
+            const visibleEnd = 4;
+            return key.substring(0, visibleStart) + '*'.repeat(key.length - visibleStart - visibleEnd) + key.substring(key.length - visibleEnd);
+        }
+
+        // Show API configuration modal
+        function showAPIConfigModal() {
+            const modal = document.getElementById('apiConfigModal');
+            
+            // Load current keys into form (masked for display)
+            const hfKey = aiConfig.apiKeys.huggingface || '';
+            const openaiKey = aiConfig.apiKeys.openai || '';
+            const googleKey = aiConfig.apiKeys.google || '';
+            
+            document.getElementById('hfApiKey').value = hfKey;
+            document.getElementById('openaiApiKey').value = openaiKey;
+            document.getElementById('googleApiKey').value = googleKey;
+            
+            // Add placeholder text showing masked versions if keys exist
+            if (hfKey) {
+                document.getElementById('hfApiKey').placeholder = `Current: ${maskAPIKey(hfKey)}`;
+            }
+            if (openaiKey) {
+                document.getElementById('openaiApiKey').placeholder = `Current: ${maskAPIKey(openaiKey)}`;
+            }
+            if (googleKey) {
+                document.getElementById('googleApiKey').placeholder = `Current: ${maskAPIKey(googleKey)}`;
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        // Close API configuration modal
+        function closeAPIConfigModal() {
+            const modal = document.getElementById('apiConfigModal');
+            modal.style.display = 'none';
+            
+            // Clear form for security
+            document.getElementById('hfApiKey').value = '';
+            document.getElementById('openaiApiKey').value = '';
+            document.getElementById('googleApiKey').value = '';
+        }
+
+        // Save API keys from modal with validation
+        function saveAPIKeys() {
+            // Get values from form
+            const hfKey = document.getElementById('hfApiKey').value.trim();
+            const openaiKey = document.getElementById('openaiApiKey').value.trim();
+            const googleKey = document.getElementById('googleApiKey').value.trim();
+            
+            // Validate keys
+            const validationErrors = [];
+            
+            if (hfKey && !keyValidation.validate('huggingface', hfKey)) {
+                validationErrors.push('Hugging Face API key format is invalid (should start with "hf_")');
+            }
+            
+            if (openaiKey && !keyValidation.validate('openai', openaiKey)) {
+                validationErrors.push('OpenAI API key format is invalid (should start with "sk-")');
+            }
+            
+            if (googleKey && !keyValidation.validate('google', googleKey)) {
+                validationErrors.push('Google AI API key format is invalid (should start with "AIzaSy")');
+            }
+            
+            // Show validation errors
+            if (validationErrors.length > 0) {
+                showStatus('Validation errors: ' + validationErrors.join('; '), 'error');
+                return;
+            }
+            
+            // Update config only if validation passes
+            if (hfKey || !aiConfig.apiKeys.huggingface) {
+                aiConfig.apiKeys.huggingface = hfKey;
+            }
+            if (openaiKey || !aiConfig.apiKeys.openai) {
+                aiConfig.apiKeys.openai = openaiKey;
+            }
+            if (googleKey || !aiConfig.apiKeys.google) {
+                aiConfig.apiKeys.google = googleKey;
+            }
+            
+            // Save to secure storage
+            saveAPIKeysToStorage();
+            
+            // Update UI based on available keys
+            updateProviderAvailability();
+            
+            // Close modal
+            closeAPIConfigModal();
+            
+            showStatus('API keys saved securely');
+        }
+
+        // Clear all API keys (security function)
+        function clearAllAPIKeys() {
+            if (confirm('Are you sure you want to clear all saved API keys? This action cannot be undone.')) {
+                // Clear from memory
+                aiConfig.apiKeys = {
+                    openai: '',
+                    google: '',
+                    huggingface: ''
+                };
+                
+                // Clear from storage
+                secureStorage.clearKeys();
+                
+                // Update UI
+                updateProviderAvailability();
+                
+                showStatus('All API keys cleared');
+            }
+        }
+
+        // Test API key functionality
+        async function testAPIKey(provider) {
+            showStatus(`Testing ${provider} API key...`);
+            
+            try {
+                let testResult = false;
+                
+                switch (provider) {
+                    case 'huggingface':
+                        if (aiConfig.apiKeys.huggingface) {
+                            testResult = await testHuggingFaceKey();
+                        }
+                        break;
+                    case 'openai':
+                        if (aiConfig.apiKeys.openai) {
+                            testResult = await testOpenAIKey();
+                        }
+                        break;
+                    case 'google':
+                        if (aiConfig.apiKeys.google) {
+                            testResult = await testGoogleKey();
+                        }
+                        break;
+                }
+                
+                if (testResult) {
+                    showStatus(`${provider} API key is working correctly`);
+                } else {
+                    showStatus(`${provider} API key test failed`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`${provider} API key test error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test Hugging Face API key
+        async function testHuggingFaceKey() {
+            try {
+                const response = await callHuggingFaceAPI(
+                    'cardiffnlp/twitter-roberta-base-sentiment-latest',
+                    'test message',
+                    'text-classification'
+                );
+                return Array.isArray(response) && response.length > 0;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // Test OpenAI API key
+        async function testOpenAIKey() {
+            try {
+                let results = [];
+                
+                // Test free moderation API (should work without key)
+                try {
+                    const moderationTest = await analyzeWithOpenAIModeration('test message for moderation');
+                    if (moderationTest && !moderationTest.error) {
+                        results.push('✅ Moderation API: Working (FREE)');
+                    } else {
+                        results.push('❌ Moderation API: Failed');
+                    }
+                } catch (error) {
+                    results.push('❌ Moderation API: Error');
+                }
+                
+                // Test premium chat API (requires key)
+                if (aiConfig.apiKeys.openai) {
+                    try {
+                        const response = await fetch('https://api.openai.com/v1/models', {
+                            headers: {
+                                'Authorization': `Bearer ${aiConfig.apiKeys.openai}`
+                            }
+                        });
+                        if (response.ok) {
+                            results.push('✅ Chat API: Working (Premium)');
+                        } else {
+                            results.push('❌ Chat API: Invalid key');
+                        }
+                    } catch (error) {
+                        results.push('❌ Chat API: Error');
+                    }
+                } else {
+                    results.push('⚠️ Chat API: No key provided (Moderation still works)');
+                }
+                
+                showStatus(`OpenAI Test Results: ${results.join(' | ')}`);
+                return results.every(r => r.includes('✅') || r.includes('⚠️'));
+                
+            } catch (error) {
+                showStatus(`OpenAI test error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Test Google API key (placeholder)
+        async function testGoogleKey() {
+            // Placeholder for Google API test
+            return true;
+        }
+
+        // Update provider availability based on API keys
+        function updateProviderAvailability() {
+            // Enable/disable checkboxes based on API key availability
+            const openaiCheckbox = document.getElementById('enableOpenAI');
+            const googleCheckbox = document.getElementById('enableGoogle');
+            
+            // OpenAI is always available (free moderation API), API key just adds premium features
+            openaiCheckbox.disabled = false;
+            openaiCheckbox.parentElement.style.opacity = '1';
+            
+            if (aiConfig.apiKeys.google) {
+                googleCheckbox.disabled = false;
+                googleCheckbox.parentElement.style.opacity = '1';
+            } else {
+                googleCheckbox.checked = false;
+                googleCheckbox.disabled = true;
+                googleCheckbox.parentElement.style.opacity = '0.6';
+                aiConfig.enableGoogle = false;
+                updateAIProviderUI('google-provider', false);
+            }
+        }
+
+        // Update security settings from modal
+        function updateSecuritySettings() {
+            const useSessionStorage = document.getElementById('useSessionStorage').checked;
+            const encryptKeys = document.getElementById('encryptKeys').checked;
+            
+            // Update security configuration
+            secureStorage.useSessionStorage = useSessionStorage;
+            secureStorage.encryptKeys = encryptKeys;
+            
+            // If switching storage types, migrate existing keys
+            if (useSessionStorage !== secureStorage.useSessionStorage) {
+                const currentKeys = secureStorage.loadKeys();
+                secureStorage.clearKeys(); // Clear old storage
+                secureStorage.useSessionStorage = useSessionStorage;
+                if (Object.keys(currentKeys).length > 0) {
+                    secureStorage.saveKeys(currentKeys); // Save to new storage
+                }
+            }
+        }
+
+        // Initialize API configuration on page load
+        function initializeAPIConfig() {
+            loadSavedAPIKeys();
+            updateProviderAvailability();
+            
+            // Initialize security settings in modal
+            document.getElementById('useSessionStorage').checked = secureStorage.useSessionStorage;
+            document.getElementById('encryptKeys').checked = secureStorage.encryptKeys;
+            
+            // Close modal when clicking outside
+            document.getElementById('apiConfigModal').addEventListener('click', (e) => {
+                if (e.target.id === 'apiConfigModal') {
+                    closeAPIConfigModal();
+                }
+            });
+            
+            // Add keyboard shortcut to close modal (Escape key)
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && document.getElementById('apiConfigModal').style.display === 'block') {
+                    closeAPIConfigModal();
+                }
+            });
+        }
+    </script>
+</body>
+</html>
