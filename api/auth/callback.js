@@ -80,19 +80,102 @@ module.exports = async (req, res) => {
         
         console.log('OAuth callback successful for user:', user.name);
         
-        // Redirect back to frontend with success
+        // Send HTML response that handles both popup and redirect scenarios
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const redirectUrl = `${frontendUrl}?oauth_success=true&session=${sessionId}`;
         
-        res.redirect(302, redirectUrl);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authorization Complete</title>
+                <script>
+                    // Check if we're in a popup window
+                    if (window.opener && window.opener !== window) {
+                        // We're in a popup - send message to parent and close
+                        try {
+                            window.opener.postMessage({
+                                type: 'oauth_callback',
+                                success: true,
+                                sessionId: '${sessionId}'
+                            }, '${frontendUrl}');
+                            
+                            // Show success message briefly before closing
+                            document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: sans-serif;"><h2>Authorization successful!</h2><p>This window will close automatically...</p></div>';
+                            
+                            setTimeout(() => {
+                                window.close();
+                            }, 1500);
+                        } catch (e) {
+                            console.error('Failed to communicate with parent window:', e);
+                            // Fall back to redirect
+                            window.location.href = '${redirectUrl}';
+                        }
+                    } else {
+                        // Not in a popup - redirect normally
+                        window.location.href = '${redirectUrl}';
+                    }
+                </script>
+            </head>
+            <body>
+                <div style="text-align: center; padding: 50px; font-family: sans-serif;">
+                    <h2>Authorization successful!</h2>
+                    <p>Redirecting...</p>
+                </div>
+            </body>
+            </html>
+        `);
         
     } catch (error) {
         console.error('OAuth callback error:', error);
         
-        // Redirect to frontend with error
+        // Send HTML response for error case too
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const redirectUrl = `${frontendUrl}?oauth_error=${encodeURIComponent(error.message)}`;
         
-        res.redirect(302, redirectUrl);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authorization Failed</title>
+                <script>
+                    // Check if we're in a popup window
+                    if (window.opener && window.opener !== window) {
+                        // We're in a popup - send error message to parent and close
+                        try {
+                            window.opener.postMessage({
+                                type: 'oauth_callback',
+                                success: false,
+                                error: '${error.message.replace(/'/g, "\\'").replace(/"/g, '\\"')}'
+                            }, '${frontendUrl}');
+                            
+                            // Show error message briefly before closing
+                            document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-family: sans-serif; color: #d32f2f;"><h2>Authorization failed</h2><p>${error.message.replace(/'/g, "\\'").replace(/"/g, '\\"')}</p><p>This window will close automatically...</p></div>';
+                            
+                            setTimeout(() => {
+                                window.close();
+                            }, 3000);
+                        } catch (e) {
+                            console.error('Failed to communicate with parent window:', e);
+                            // Fall back to redirect
+                            window.location.href = '${redirectUrl}';
+                        }
+                    } else {
+                        // Not in a popup - redirect normally
+                        window.location.href = '${redirectUrl}';
+                    }
+                </script>
+            </head>
+            <body>
+                <div style="text-align: center; padding: 50px; font-family: sans-serif; color: #d32f2f;">
+                    <h2>Authorization failed</h2>
+                    <p>${error.message}</p>
+                    <p>Redirecting...</p>
+                </div>
+            </body>
+            </html>
+        `);
     }
 }; 

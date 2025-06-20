@@ -733,11 +733,24 @@
             </div>
             
             <div id="verificationStep" class="login-step hidden">
-                <p>A new window has opened for authorization. After authorizing, enter the verification code you receive from Wikipedia below.</p>
-                <form id="verification-form">
-                    <input type="text" id="verificationCode" placeholder="Enter code here" required style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;"/>
-                    <button type="submit" class="btn-primary">Submit Code</button>
-                </form>
+                <h2>Authorizing with Wikipedia...</h2>
+                <p>A popup window has opened for you to authorize this application on Wikipedia.</p>
+                <p>Please complete the authorization in the popup window.</p>
+                <div style="margin: 20px 0;">
+                    <div class="spinner"></div>
+                </div>
+                <p style="color: #666; font-size: 14px;">If the popup was blocked, please allow popups for this site and try again.</p>
+                <button type="button" class="btn-secondary" onclick="location.reload()">Start Over</button>
+                
+                <!-- Keep the manual verification form hidden, only show if automatic flow fails -->
+                <div id="manualVerification" style="display: none; margin-top: 30px; padding-top: 30px; border-top: 1px solid #ddd;">
+                    <h3>Manual Verification</h3>
+                    <p>If the automatic authorization isn't working, you can enter the verification code manually:</p>
+                    <form id="verification-form">
+                        <input type="text" id="verificationCode" placeholder="Enter code here" required style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;"/>
+                        <button type="submit" class="btn-primary">Submit Code</button>
+                    </form>
+                </div>
             </div>
 
             <div class="security-notice">
@@ -1165,7 +1178,16 @@
                 // Show verification step
                 document.getElementById('loginStep').classList.add('hidden');
                 document.getElementById('verificationStep').classList.remove('hidden');
-                updateOverlayStatus('Please enter the verification code from Wikipedia');
+                updateOverlayStatus('Waiting for authorization in popup window...');
+                
+                // Show manual verification option after 15 seconds if automatic flow hasn't completed
+                setTimeout(() => {
+                    // Only show manual option if we're still on the verification step
+                    if (!document.getElementById('verificationStep').classList.contains('hidden')) {
+                        document.getElementById('manualVerification').style.display = 'block';
+                        updateOverlayStatus('You can also enter the verification code manually below');
+                    }
+                }, 15000);
                 
                 // Set up the verification form handler
                 const verificationForm = document.getElementById('verification-form');

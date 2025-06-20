@@ -9,9 +9,69 @@ class WikipediaOAuthClient {
         this.sessionId = localStorage.getItem('wikipedia_oauth_session');
         console.log('Existing session ID from localStorage:', this.sessionId);
         this.user = null;
+        this.authWindow = null;
+        
+        // Set up message listener for OAuth popup callbacks
+        this.setupMessageListener();
         
         // Check for OAuth callback parameters
         this.handleOAuthCallback();
+    }
+    
+    /**
+     * Set up listener for postMessage events from OAuth popup
+     */
+    setupMessageListener() {
+        window.addEventListener('message', (event) => {
+            console.log('Received postMessage:', event);
+            
+            // Verify the message is from our expected origin
+            const expectedOrigin = this.backendUrl.replace(/\/api$/, '');
+            if (!event.origin.startsWith(expectedOrigin) && !event.origin.startsWith(window.location.origin)) {
+                console.log('Ignoring message from unexpected origin:', event.origin);
+                return;
+            }
+            
+            // Handle OAuth callback messages
+            if (event.data && event.data.type === 'oauth_callback') {
+                console.log('Processing OAuth callback message:', event.data);
+                
+                if (event.data.success) {
+                    // Store session ID
+                    this.sessionId = event.data.sessionId;
+                    localStorage.setItem('wikipedia_oauth_session', this.sessionId);
+                    localStorage.removeItem('wikipedia_oauth_session_pending');
+                    
+                    // Close the popup if it's still open
+                    if (this.authWindow && !this.authWindow.closed) {
+                        this.authWindow.close();
+                    }
+                    
+                    // Verify the session
+                    this.verifySession().then(user => {
+                        if (user) {
+                            console.log('Session verified successfully for user:', user);
+                            this.onLoginSuccess(user);
+                        } else {
+                            console.error('Session verification returned no user');
+                            this.onLoginError('Failed to verify session');
+                        }
+                    }).catch(error => {
+                        console.error('Session verification failed:', error);
+                        this.onLoginError(error.message);
+                    });
+                } else {
+                    // Handle error
+                    console.error('OAuth callback error:', event.data.error);
+                    this.onLoginError(event.data.error || 'OAuth authorization failed');
+                    
+                    // Close the popup if it's still open
+                    if (this.authWindow && !this.authWindow.closed) {
+                        this.authWindow.close();
+                    }
+                }
+            }
+        });
     }
     
     /**
@@ -94,7 +154,16 @@ class WikipediaOAuthClient {
                     localStorage.setItem('wikipedia_oauth_session', data.sessionId);
                     
                     // Open authorization URL in new window
-                    const authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
+                    this.authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
+                    
+                    // Monitor if the popup is closed manually
+                    const checkClosed = setInterval(() => {
+                        if (this.authWindow && this.authWindow.closed) {
+                            clearInterval(checkClosed);
+                            console.log('Auth window was closed manually');
+                            // Don't show an error - user might enter the code manually
+                        }
+                    }, 1000);
                     
                     // Show instructions to user
                     this.onOAuthVerificationNeeded(data.authUrl, data.sessionId);
