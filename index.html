@@ -1548,7 +1548,7 @@
             apiKeys: {
                 openai: '',
                 google: '',
-                huggingface: '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' // API key for higher rate limits
+                huggingface: '' // Will be loaded from environment variable
             }
         };
 
@@ -1685,12 +1685,12 @@
             const storedSessionId = localStorage.getItem('wikipedia_oauth_session');
             
             if (storedUsername && storedSessionId) {
-                // Restore the username immediately for better UX
+                                 // Restore the username immediately for better UX
                 authState.username = storedUsername;
                 authState.isLoggedIn = true;
                 updateAuthUI();
                 hideLoginOverlay();
-                initializeApplication();
+                await initializeApplication();
                 
                 // Then verify the session in the background
                 setTimeout(async () => {
@@ -1707,7 +1707,7 @@
                 if (isLoggedIn) {
                     // User is already logged in, hide overlay and initialize app
                     hideLoginOverlay();
-                    initializeApplication();
+                    await initializeApplication();
                 } else {
                     // User is not logged in, show the overlay
                     showLoginOverlay();
@@ -1736,8 +1736,38 @@
             }
         }
 
+        // Load environment configuration from API
+        async function loadEnvironmentConfig() {
+            try {
+                console.log('Loading environment configuration...');
+                const response = await fetch('/api/config');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.config) {
+                        // Load API keys from environment
+                        if (data.config.huggingfaceApiKey) {
+                            aiConfig.apiKeys.huggingface = data.config.huggingfaceApiKey;
+                            console.log('Hugging Face API key loaded from environment');
+                        }
+                        
+                        // Add other config loading here as needed
+                        console.log('Environment configuration loaded successfully');
+                    } else {
+                        console.warn('Failed to load environment config:', data.error);
+                    }
+                } else {
+                    console.warn('Config endpoint returned error:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading environment config:', error);
+                // Continue without environment config - user can still manually configure
+            }
+        }
+
         // Initialize application after login
-        function initializeApplication() {
+        async function initializeApplication() {
+            await loadEnvironmentConfig();
             setupAIConfig();
             refreshChanges();
             setupKeyboardShortcuts();
