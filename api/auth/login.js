@@ -32,8 +32,8 @@ module.exports = async (req, res) => {
         console.log(`Using callback URL: ${callbackUrl}`);
         
         // Get request token
-        const response = await makeOAuthRequest(ENDPOINTS.requestToken, 'GET', null, {
-            oauth_callback: callbackUrl
+        const response = await makeOAuthRequest(ENDPOINTS.requestToken, 'POST', null, {
+            oauth_callback: 'oob'  // Required for out-of-band authentication
         });
         
         // Parse response (URL encoded)
@@ -66,7 +66,9 @@ module.exports = async (req, res) => {
         res.status(200).json({
             success: true,
             authUrl,
-            sessionId
+            sessionId,
+            isOutOfBand: true,
+            instructions: 'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify endpoint.'
         });
         
     } catch (error) {

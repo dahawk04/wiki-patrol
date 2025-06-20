@@ -87,9 +87,22 @@ class WikipediaOAuthClient {
                 console.log('Storing pending session ID:', data.sessionId);
                 localStorage.setItem('wikipedia_oauth_session_pending', data.sessionId);
                 
-                // Redirect to Wikipedia for authorization
-                console.log('Redirecting to Wikipedia authorization URL:', data.authUrl);
-                window.location.href = data.authUrl;
+                if (data.isOutOfBand) {
+                    // Handle out-of-band flow
+                    console.log('Out-of-band authentication detected');
+                    this.sessionId = data.sessionId;
+                    localStorage.setItem('wikipedia_oauth_session', data.sessionId);
+                    
+                    // Open authorization URL in new window
+                    const authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
+                    
+                    // Show instructions to user
+                    this.onOAuthVerificationNeeded(data.authUrl, data.sessionId);
+                } else {
+                    // Redirect to Wikipedia for authorization
+                    console.log('Redirecting to Wikipedia authorization URL:', data.authUrl);
+                    window.location.href = data.authUrl;
+                }
             } else {
                 console.error('Login endpoint returned error:', data.error);
                 throw new Error(data.error || 'Failed to start OAuth flow');
@@ -307,6 +320,45 @@ class WikipediaOAuthClient {
         });
     }
     
+    /**
+     * Submit verification code for out-of-band OAuth
+     */
+    async submitVerificationCode(verificationCode) {
+        console.log('Submitting verification code...');
+        if (!this.sessionId) {
+            throw new Error('No session ID found');
+        }
+        
+        try {
+            const response = await fetch(`${this.backendUrl}/auth/verify-code`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionId: this.sessionId,
+                    verificationCode: verificationCode
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.user = data.user;
+                console.log('Verification successful for user:', this.user);
+                this.onLoginSuccess(this.user);
+                return this.user;
+            } else {
+                console.error('Verification failed:', data.error);
+                throw new Error(data.error || 'Verification failed');
+            }
+        } catch (error) {
+            console.error('Verification error:', error);
+            this.onLoginError(error.message);
+            throw error;
+        }
+    }
+    
     // Event handlers (override these in your app)
     onLoginSuccess(user) {
         console.log('Default onLoginSuccess handler called with user:', user);
@@ -318,6 +370,11 @@ class WikipediaOAuthClient {
     
     onLogout() {
         console.log('Logged out');
+    }
+    
+    onOAuthVerificationNeeded(authUrl, sessionId) {
+        console.log('OAuth verification needed. Visit:', authUrl);
+        console.log('Session ID:', sessionId);
     }
 }
 

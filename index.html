@@ -275,6 +275,47 @@
             opacity: 0;
             pointer-events: none;
         }
+        
+        .login-step {
+            margin: 20px 0;
+        }
+        
+        .login-step.hidden {
+            display: none;
+        }
+        
+        .verification-input {
+            margin: 15px 0;
+        }
+        
+        .verification-input label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .verification-input input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #333;
+            border: 1px solid #ddd;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
 
         .login-card {
             background-color: #fff;
@@ -971,9 +1012,24 @@
     <div id="loginOverlay" class="hidden">
         <div class="login-card">
             <h2>Login to Wikipedia</h2>
-            <p>Please log in to continue using the RC Patrol tool.</p>
-            <button class="btn-primary" onclick="initiateLogin()">Login</button>
-            <div class="login-status">Logged in as: <span id="loggedInUsername"></span></div>
+            <p id="overlayLoginStatus">Please log in to continue using the RC Patrol tool.</p>
+            
+            <div id="loginStep" class="login-step">
+                <button class="btn-primary" onclick="initiateLoginFromOverlay()">Login with Wikipedia</button>
+            </div>
+            
+            <div id="verificationStep" class="login-step hidden">
+                <p>A new window has opened for Wikipedia authorization.</p>
+                <p>After authorizing the application, you will receive a verification code.</p>
+                <div class="verification-input">
+                    <label for="verificationCode">Enter verification code:</label>
+                    <input type="text" id="verificationCode" placeholder="Enter code here" />
+                    <button class="btn-primary" onclick="submitVerificationCode()">Submit</button>
+                </div>
+                <button class="btn-secondary" onclick="retryLogin()">Try Again</button>
+            </div>
+            
+            <div class="login-status hidden">Logged in as: <span id="loggedInUsername"></span></div>
             <div class="security-notice">
                 <strong>Security Notice:</strong> Your session is secure. Your data is encrypted and stored locally.
             </div>
@@ -1068,6 +1124,14 @@
             oauthClient.onLoginError = (error) => {
                 showStatus(`Login failed: ${error}`, 'error');
                 updateOverlayStatus(`Login failed: ${error}`);
+            };
+            
+            oauthClient.onOAuthVerificationNeeded = (authUrl, sessionId) => {
+                console.log('OAuth verification needed');
+                // Show verification step
+                document.getElementById('loginStep').classList.add('hidden');
+                document.getElementById('verificationStep').classList.remove('hidden');
+                updateOverlayStatus('Please enter the verification code from Wikipedia');
             };
             
             oauthClient.onLogout = () => {
@@ -1291,8 +1355,35 @@
             }
             
             // Start OAuth flow
-            updateOverlayStatus('Redirecting to Wikipedia for authentication...');
+            updateOverlayStatus('Opening Wikipedia authorization...');
             await oauthClient.login();
+        }
+        
+        // Submit verification code
+        async function submitVerificationCode() {
+            const code = document.getElementById('verificationCode').value.trim();
+            
+            if (!code) {
+                updateOverlayStatus('Please enter a verification code');
+                return;
+            }
+            
+            updateOverlayStatus('Verifying code...');
+            
+            try {
+                await oauthClient.submitVerificationCode(code);
+                // Success is handled by onLoginSuccess callback
+            } catch (error) {
+                updateOverlayStatus(`Verification failed: ${error.message}`);
+            }
+        }
+        
+        // Retry login
+        function retryLogin() {
+            document.getElementById('verificationStep').classList.add('hidden');
+            document.getElementById('loginStep').classList.remove('hidden');
+            document.getElementById('verificationCode').value = '';
+            updateOverlayStatus('Please log in to continue');
         }
 
         // Authentication functions

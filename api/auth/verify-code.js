@@ -1,4 +1,4 @@
-const { ENDPOINTS, makeOAuthRequest, getCorsHeaders } = require('../_utils/oauth');
+const { ENDPOINTS, makeOAuthRequest, getCorsHeaders, sessions } = require('../_utils/oauth');
 
 module.exports = async (req, res) => {
     const origin = req.headers.origin;
@@ -9,32 +9,28 @@ module.exports = async (req, res) => {
         res.setHeader(key, value);
     });
 
-    if (req.method !== 'GET') {
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
         return;
     }
 
     try {
-        const { oauth_token, oauth_verifier } = req.query;
+        const { sessionId, verificationCode } = req.body;
         
-        if (!oauth_token || !oauth_verifier) {
-            throw new Error('Missing OAuth parameters');
+        if (!sessionId || !verificationCode) {
+            throw new Error('Missing sessionId or verificationCode');
         }
         
-        console.log('Processing OAuth callback');
+        console.log('Processing OAuth verification code');
         
-        // Find session by request token
-        const { sessions } = require('../_utils/oauth');
-        let sessionId = null;
-        let sessionData = null;
-        
-        for (const [id, data] of sessions.entries()) {
-            if (data.requestToken.key === oauth_token) {
-                sessionId = id;
-                sessionData = data;
-                break;
-            }
-        }
+        // Get session data
+        const sessionData = sessions.get(sessionId);
         
         if (!sessionData) {
             throw new Error('Invalid or expired session');
@@ -42,7 +38,7 @@ module.exports = async (req, res) => {
         
         // Exchange for access token
         const response = await makeOAuthRequest(ENDPOINTS.accessToken, 'POST', sessionData.requestToken, {
-            oauth_verifier
+            oauth_verifier: verificationCode.trim()
         });
         
         // Parse access token response
@@ -78,21 +74,19 @@ module.exports = async (req, res) => {
             lastActivity: Date.now()
         });
         
-        console.log('OAuth callback successful for user:', user.name);
+        console.log('OAuth verification successful for user:', user.name);
         
-        // Redirect back to frontend with success
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const redirectUrl = `${frontendUrl}?oauth_success=true&session=${sessionId}`;
-        
-        res.redirect(302, redirectUrl);
+        res.status(200).json({
+            success: true,
+            user,
+            sessionId
+        });
         
     } catch (error) {
-        console.error('OAuth callback error:', error);
-        
-        // Redirect to frontend with error
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const redirectUrl = `${frontendUrl}?oauth_error=${encodeURIComponent(error.message)}`;
-        
-        res.redirect(302, redirectUrl);
+        console.error('OAuth verification error:', error);
+        res.status(400).json({
+            success: false,
+            error: error.message || 'Failed to verify code'
+        });
     }
 }; 
