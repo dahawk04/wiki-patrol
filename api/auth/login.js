@@ -1,4 +1,4 @@
-const { ENDPOINTS, makeOAuthRequest, getCorsHeaders } = require('../_utils/oauth');
+const { ENDPOINTS, makeOAuthRequest, getCorsHeaders, sessions } = require('../_utils/oauth');
 
 module.exports = async (req, res) => {
     const origin = req.headers.origin;
@@ -23,16 +23,20 @@ module.exports = async (req, res) => {
     try {
         console.log('Starting OAuth flow');
         
-        // The Wikimedia OAuth flow requires "oob" (out-of-band) authentication.
-        // The user will receive a verification code to complete the process.
-        const useOob = true;
-        const oauthCallbackValue = 'oob';
+        // Check if we should use callback URL or OOB based on environment
+        const isProduction = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+        const callbackUrl = process.env.OAUTH_CALLBACK_URL || 'https://wikipedia-patrol.vercel.app/api/auth/callback';
+        
+        // Use callback URL for production, OOB for local development
+        const useOob = !isProduction && !process.env.FORCE_CALLBACK_URL;
+        const oauthCallbackValue = useOob ? 'oob' : callbackUrl;
 
         console.log('OAuth callback configuration:', {
             useOob,
             oauthCallbackValue,
-            // The registered callback URL is not used in OOB flow, but we log it for debugging.
-            registeredCallback: 'https://wikipedia-patrol.vercel.app/api/auth/callback',
+            isProduction,
+            env: process.env.VERCEL_ENV || process.env.NODE_ENV,
+            registeredCallback: callbackUrl,
             consumerKey: process.env.WIKIPEDIA_CONSUMER_KEY?.trim()?.substring(0, 8) + '...'
         });
 
@@ -54,14 +58,16 @@ module.exports = async (req, res) => {
         }
         
         // Generate session ID
-        const sessionId = require('crypto').randomBytes(32).toString('hex');
+        const sessionId = sessions.generateSessionId();
         
-        // Store request token (in production, use Redis/Database)
-        const { sessions } = require('../_utils/oauth');
-        sessions.set(sessionId, {
+        // Store session data
+        await sessions.set(sessionId, {
             requestToken,
-            createdAt: Date.now()
+            isOob: useOob
         });
+        
+        // Store reverse mapping for token lookup
+        await sessions.setTokenMapping(requestToken.key, sessionId);
         
         // Build authorization URL
         const authUrl = `${ENDPOINTS.authorize}?oauth_token=${requestToken.key}&oauth_consumer_key=${process.env.WIKIPEDIA_CONSUMER_KEY}`;
@@ -75,7 +81,7 @@ module.exports = async (req, res) => {
             isOutOfBand: useOob,
             instructions: useOob ?
                 'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify-code endpoint.' :
-                undefined
+                'Visit the authUrl to authorize the application. You will be redirected back automatically.'
         });
         
     } catch (error) {

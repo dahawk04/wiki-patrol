@@ -29,8 +29,8 @@ module.exports = async (req, res) => {
         
         console.log('Processing OAuth verification code');
         
-        // Get session data
-        const sessionData = sessions.get(sessionId);
+        // Get session data using the new storage
+        const sessionData = await sessions.get(sessionId);
         
         if (!sessionData) {
             throw new Error('Invalid or expired session');
@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
         };
         
         // Update session with access token and user info
-        sessions.set(sessionId, {
+        await sessions.set(sessionId, {
             ...sessionData,
             accessToken,
             user,

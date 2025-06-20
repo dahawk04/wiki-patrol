@@ -1,4 +1,4 @@
-const { getCorsHeaders } = require('../_utils/oauth');
+const { getCorsHeaders, sessions } = require('../_utils/oauth');
 
 module.exports = async (req, res) => {
     const origin = req.headers.origin;
@@ -24,28 +24,27 @@ module.exports = async (req, res) => {
         const { sessionId } = req.body;
         
         if (!sessionId) {
-            throw new Error('Session ID required');
+            return res.status(200).json({
+                success: false,
+                error: 'No session ID provided'
+            });
         }
         
-        const { sessions } = require('../_utils/oauth');
-        const sessionData = sessions.get(sessionId);
+        // Get session data using the new storage
+        const sessionData = await sessions.get(sessionId);
         
         if (!sessionData || !sessionData.authenticated) {
-            throw new Error('Invalid or expired session');
-        }
-        
-        // Check if session is too old (24 hours)
-        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-        if (Date.now() - sessionData.lastActivity > maxAge) {
-            sessions.delete(sessionId);
-            throw new Error('Session expired');
+            return res.status(200).json({
+                success: false,
+                error: 'Invalid or unauthenticated session'
+            });
         }
         
         // Update last activity
-        sessionData.lastActivity = Date.now();
-        sessions.set(sessionId, sessionData);
-        
-        console.log('Session verified for user:', sessionData.user.name);
+        await sessions.set(sessionId, {
+            ...sessionData,
+            lastActivity: Date.now()
+        });
         
         res.status(200).json({
             success: true,
@@ -54,9 +53,9 @@ module.exports = async (req, res) => {
         
     } catch (error) {
         console.error('Session verification error:', error);
-        res.status(401).json({
+        res.status(500).json({
             success: false,
-            error: error.message || 'Session verification failed'
+            error: error.message || 'Failed to verify session'
         });
     }
 }; 

@@ -1,4 +1,4 @@
-const { ENDPOINTS, makeOAuthRequest, getCorsHeaders } = require('../_utils/oauth');
+const { ENDPOINTS, makeOAuthRequest, getCorsHeaders, sessions } = require('../_utils/oauth');
 
 module.exports = async (req, res) => {
     const origin = req.headers.origin;
@@ -21,24 +21,18 @@ module.exports = async (req, res) => {
             throw new Error('Missing OAuth parameters');
         }
         
-        console.log('Processing OAuth callback');
+        console.log('Processing OAuth callback for token:', oauth_token);
         
-        // Find session by request token
-        const { sessions } = require('../_utils/oauth');
-        let sessionId = null;
-        let sessionData = null;
+        // Find session by request token using the new storage
+        const result = await sessions.findByRequestToken(oauth_token);
         
-        for (const [id, data] of sessions.entries()) {
-            if (data.requestToken.key === oauth_token) {
-                sessionId = id;
-                sessionData = data;
-                break;
-            }
-        }
-        
-        if (!sessionData) {
+        if (!result) {
+            console.error('No session found for token:', oauth_token);
             throw new Error('Invalid or expired session');
         }
+        
+        const { sessionId, session: sessionData } = result;
+        console.log('Found session:', sessionId);
         
         // Exchange for access token
         const response = await makeOAuthRequest(ENDPOINTS.accessToken, 'POST', sessionData.requestToken, {
@@ -70,7 +64,7 @@ module.exports = async (req, res) => {
         };
         
         // Update session with access token and user info
-        sessions.set(sessionId, {
+        await sessions.set(sessionId, {
             ...sessionData,
             accessToken,
             user,

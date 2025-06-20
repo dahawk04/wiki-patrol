@@ -15,6 +15,9 @@
     "dotenv": "^16.5.0",
     "oauth-1.0a": "^2.2.6"
   },
+  "optionalDependencies": {
+    "@vercel/kv": "^1.0.1"
+  },
   "keywords": ["wikipedia", "patrol", "oauth", "vercel"],
   "author": "",
   "license": "ISC"

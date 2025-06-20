@@ -141,4 +141,55 @@ If you encounter issues:
 3. Verify your OAuth credentials
 4. Check browser console for errors
 
+## Persistent Session Storage with Vercel KV (Recommended)
+
+For production deployments, it's highly recommended to set up Vercel KV for persistent session storage. Without this, OAuth sessions will be lost between serverless function invocations.
+
+### Setting up Vercel KV
+
+1. In your Vercel dashboard, go to your project
+2. Navigate to the "Storage" tab
+3. Click "Create Database" and select "KV"
+4. Choose a name for your KV store (e.g., "wikipedia-patrol-sessions")
+5. Select your preferred region
+6. Click "Create"
+
+Once created, Vercel will automatically add the following environment variables to your project:
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+- `KV_REST_API_READ_ONLY_TOKEN`
+
+The application will automatically detect these variables and use Vercel KV for session storage.
+
+### Benefits of Vercel KV
+
+- **Persistent Sessions**: Sessions survive across serverless function invocations
+- **Scalability**: Handles high traffic without session conflicts
+- **Automatic Expiration**: Sessions expire automatically after the configured TTL
+- **Global Distribution**: Low latency access from Vercel Edge Network
+
+### Fallback Behavior
+
+If Vercel KV is not configured, the application will fall back to in-memory storage, which:
+- Works for local development
+- May cause "Invalid or expired session" errors in production
+- Is not recommended for production use
+
+## Updating Your Deployment
+
+To update your deployed application:
+
+```bash
+vercel --prod
+```
+
+Or push changes to your connected GitHub repository for automatic deployment.
+
+## Additional Resources
+
+- [Vercel Documentation](https://vercel.com/docs)
+- [Vercel KV Documentation](https://vercel.com/docs/storage/vercel-kv)
+- [Wikipedia OAuth Documentation](https://www.mediawiki.org/wiki/OAuth/For_Developers)
+- [Project README](README.md)
+
 Your Wikipedia Patrol Tool is now running on Vercel! 🎉 

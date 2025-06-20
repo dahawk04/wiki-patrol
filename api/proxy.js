@@ -1,4 +1,4 @@
-const { ENDPOINTS, makeOAuthRequest, getCorsHeaders } = require('./_utils/oauth');
+const { ENDPOINTS, makeOAuthRequest, getCorsHeaders, sessions } = require('./_utils/oauth');
 
 module.exports = async (req, res) => {
     const origin = req.headers.origin;
@@ -27,23 +27,18 @@ module.exports = async (req, res) => {
             throw new Error('Session ID required');
         }
         
-        const { sessions } = require('./_utils/oauth');
-        const sessionData = sessions.get(sessionId);
+        // Get session data using the new storage
+        const sessionData = await sessions.get(sessionId);
         
         if (!sessionData || !sessionData.authenticated) {
             throw new Error('Invalid or expired session');
         }
         
-        // Check if session is too old
-        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-        if (Date.now() - sessionData.lastActivity > maxAge) {
-            sessions.delete(sessionId);
-            throw new Error('Session expired');
-        }
-        
         // Update last activity
-        sessionData.lastActivity = Date.now();
-        sessions.set(sessionId, sessionData);
+        await sessions.set(sessionId, {
+            ...sessionData,
+            lastActivity: Date.now()
+        });
         
         // Prepare API parameters
         const apiParams = {

@@ -1,6 +1,7 @@
 const OAuth = require('oauth-1.0a');
 const crypto = require('crypto');
 const axios = require('axios');
+const sessionStorage = require('./session-storage');
 
 // Wikipedia OAuth endpoints
 const ENDPOINTS = {
@@ -32,9 +33,6 @@ console.log('OAuth configured with:', {
     consumerKeyLength: consumerKey?.length || 0,
     consumerKeyPrefix: consumerKey?.substring(0, 6) || 'NOT_SET'
 });
-
-// Session storage (using a simple Map for now - in production use Redis/Database)
-const sessions = new Map();
 
 // Helper function to make OAuth requests
 async function makeOAuthRequest(url, method, token = null, data = {}) {
@@ -132,7 +130,7 @@ function getCorsHeaders(origin) {
 module.exports = {
     ENDPOINTS,
     oauth,
-    sessions,
+    sessions: sessionStorage, // Export the session storage for backward compatibility
     makeOAuthRequest,
     getCorsHeaders
 }; 
