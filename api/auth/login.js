@@ -23,10 +23,10 @@ module.exports = async (req, res) => {
     try {
         console.log('Starting OAuth flow');
         
-        // The Wikimedia OAuth flow requires "oob" (out-of-band) authentication.
-        // The user will receive a verification code to complete the process.
-        const useOob = true;
-        const oauthCallbackValue = 'oob';
+        // Use the registered callback URL for this OAuth application
+        const useOob = false;
+        const callbackUrl = 'https://wikipedia-patrol.vercel.app/api/auth/callback';
+        const oauthCallbackValue = callbackUrl;
 
         console.log('OAuth callback configuration:', {
             useOob,
@@ -75,7 +75,7 @@ module.exports = async (req, res) => {
             isOutOfBand: useOob,
             instructions: useOob ?
                 'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify-code endpoint.' :
-                undefined
+                'Visit the authUrl and authorize the application. You will be redirected back automatically.'
         });
         
     } catch (error) {
