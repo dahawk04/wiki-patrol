@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
         const callbackUrl = process.env.OAUTH_CALLBACK_URL || 'https://wikipedia-patrol.vercel.app/api/auth/callback';
         
         // Use callback URL for production, OOB for local development
-        const useOob = !isProduction && !process.env.FORCE_CALLBACK_URL;
+        const useOob = true;
         const oauthCallbackValue = useOob ? 'oob' : callbackUrl;
 
         console.log('OAuth callback configuration:', {
