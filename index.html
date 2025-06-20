@@ -1013,8 +1013,8 @@
 
             <div class="filter-section">
                 <label>ORES Threshold:</label>
-                <input type="range" id="oresThreshold" min="0" max="1" step="0.1" value="0.5">
-                <span id="oresValue">0.5</span>
+                                        <input type="range" id="oresThreshold" min="0" max="1" step="0.1" value="0.1">
+                                        <span id="oresValue">0.1</span>
                 <label style="margin-left: 20px;">Namespace:</label>
                 <select id="namespaceFilter">
                     <option value="all">All</option>
@@ -1384,6 +1384,7 @@
         // --- Globals ---
         let recentChanges = [];
         let currentIndex = -1;
+        let processedRevisions = new Set(); // Track processed revision IDs
         const apiUrl = '/api'; // Define once
         let oauthClient; // Define once
 
@@ -2185,30 +2186,10 @@
                 
                 // If no changes pass the threshold, show a message but still display them
                 if (recentChanges.length === 0) {
-                    console.log('No changes pass threshold, showing all changes');
-                    // Reset to original list but with lower threshold
+                    console.log('No changes pass threshold, showing all changes with lower threshold');
+                    // Reset to original list and show all changes
                     recentChanges = response.query.recentchanges;
-                    // Re-apply analysis to all changes
-                    recentChanges.forEach(change => {
-                        if (!change.analysis) {
-                            change.analysis = {
-                                ores: { damaging: { score: 0.5 }, goodfaith: { score: 0.5 } },
-                                content: { score: 0, details: [] },
-                                patterns: { score: 0, details: [] },
-                                user: userAnalysisMap[change.user] || { score: 0, details: [] },
-                                combined: { score: 0.5, level: 'medium', details: [] },
-                                ai: { providers: [], confidence: 0, verdict: 'pending', reasoning: 'Analysis in progress...' }
-                            };
-                        }
-                        change.analysis.combined = calculateCombinedRisk(
-                            change,
-                            change.analysis.ores,
-                            change.analysis.content,
-                            change.analysis.patterns,
-                            change.analysis.user
-                        );
-                        change.oresScore = change.analysis.combined.score;
-                    });
+                    showStatus('No changes above threshold - showing all recent changes', 'info');
                 }
 
                 // Sort by combined risk score (highest first)
