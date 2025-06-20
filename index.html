@@ -1773,6 +1773,12 @@
             setupKeyboardShortcuts();
             setupFilters();
             initializeAPIConfig();
+            
+            // Set up real-time updates every 30 seconds
+            setInterval(() => {
+                console.log('Auto-refreshing changes...');
+                refreshChanges();
+            }, 30000);
         }
 
         // Login from overlay
@@ -2170,12 +2176,46 @@
 
                 // Filter by combined risk threshold
                 const threshold = parseFloat(document.getElementById('oresThreshold').value);
+                console.log(`Filtering ${recentChanges.length} changes with threshold ${threshold}`);
+                
+                const beforeFilter = recentChanges.length;
                 recentChanges = recentChanges.filter(change => change.analysis.combined.score >= threshold);
+                
+                console.log(`After filtering: ${recentChanges.length} changes remain (filtered out ${beforeFilter - recentChanges.length})`);
+                
+                // If no changes pass the threshold, show a message but still display them
+                if (recentChanges.length === 0) {
+                    console.log('No changes pass threshold, showing all changes');
+                    // Reset to original list but with lower threshold
+                    recentChanges = response.query.recentchanges;
+                    // Re-apply analysis to all changes
+                    recentChanges.forEach(change => {
+                        if (!change.analysis) {
+                            change.analysis = {
+                                ores: { damaging: { score: 0.5 }, goodfaith: { score: 0.5 } },
+                                content: { score: 0, details: [] },
+                                patterns: { score: 0, details: [] },
+                                user: userAnalysisMap[change.user] || { score: 0, details: [] },
+                                combined: { score: 0.5, level: 'medium', details: [] },
+                                ai: { providers: [], confidence: 0, verdict: 'pending', reasoning: 'Analysis in progress...' }
+                            };
+                        }
+                        change.analysis.combined = calculateCombinedRisk(
+                            change,
+                            change.analysis.ores,
+                            change.analysis.content,
+                            change.analysis.patterns,
+                            change.analysis.user
+                        );
+                        change.oresScore = change.analysis.combined.score;
+                    });
+                }
 
                 // Sort by combined risk score (highest first)
                 recentChanges.sort((a, b) => b.analysis.combined.score - a.analysis.combined.score);
 
                 currentIndex = 0;
+                console.log(`About to render ${recentChanges.length} changes`);
                 renderChanges();
                 showStatus('Changes loaded - Enhanced analysis running in background...');
                 
@@ -2306,12 +2346,21 @@
 
         // Render changes
         function renderChanges() {
+            console.log(`renderChanges called with ${recentChanges.length} changes`);
             const container = document.getElementById('changesContainer');
             
+            if (!container) {
+                console.error('changesContainer element not found!');
+                return;
+            }
+            
             if (recentChanges.length === 0) {
+                console.log('No changes to display');
                 container.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">No changes found matching your criteria.</p>';
                 return;
             }
+            
+            console.log('Rendering changes...');
 
             container.innerHTML = recentChanges.map((change, index) => {
                 const isProcessed = processedRevisions.has(change.revid);
