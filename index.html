@@ -1342,6 +1342,12 @@
             initOAuth(); // Initialize OAuth client first
             // Don't initialize anything else until user is logged in
             checkInitialAuthStatus();
+            
+            // Add event listener for login button
+            const loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', initiateLoginFromOverlay);
+            }
         });
 
         // Check initial auth status and show/hide overlay

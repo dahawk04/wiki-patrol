@@ -89,3 +89,4 @@ build/
 # Deployment
 .vercel
 .netlify 
+.env*.local
