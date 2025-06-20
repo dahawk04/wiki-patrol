@@ -25,10 +25,11 @@ module.exports = async (req, res) => {
         
         // Check if we should use callback URL or OOB based on environment
         const isProduction = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
-        const callbackUrl = process.env.OAUTH_CALLBACK_URL || 'https://wikipedia-patrol.vercel.app/api/auth/callback';
+        // Explicitly set the callback URL to remove any doubt about environment variables.
+        const callbackUrl = 'https://wikipedia-patrol.vercel.app/api/auth/callback';
         
         // Use callback URL for production, OOB for local development
-        const useOob = true;
+        const useOob = !isProduction && !process.env.FORCE_CALLBACK_URL;
         const oauthCallbackValue = useOob ? 'oob' : callbackUrl;
 
         console.log('OAuth callback configuration:', {
