@@ -36,6 +36,13 @@ module.exports = async (req, res) => {
         const useOob = process.env.WIKIPEDIA_OAUTH_USE_OOB === 'true';
         const oauthCallbackValue = useOob ? 'oob' : callbackUrl;
 
+        console.log('OAuth callback configuration:', {
+            useOob,
+            oauthCallbackValue,
+            registeredCallback: 'https://wikipedia-patrol.vercel.app/api/auth/callback',
+            consumerKey: process.env.WIKIPEDIA_CONSUMER_KEY?.trim()?.substring(0, 8) + '...'
+        });
+
         // Get request token
         const response = await makeOAuthRequest(ENDPOINTS.requestToken, 'POST', null, {
             oauth_callback: oauthCallbackValue
