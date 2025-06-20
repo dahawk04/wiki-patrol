@@ -335,7 +335,7 @@ class WikipediaOAuthClient {
         }
 
         try {
-            const response = await fetch(`${this.backendUrl}/auth/verify-code`, {
+            const response = await fetch(`${this.backendUrl}/api/auth/verify-code`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
