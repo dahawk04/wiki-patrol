@@ -994,13 +994,14 @@
         };
         
         // OAuth Configuration
-        const OAUTH_BACKEND_URL = 'https://wikipedia-patrol-oauth-2220f09fd13a.herokuapp.com/'; // Your deployed backend URL
+        // Configuration - Will be automatically set to your Vercel deployment URL
+        const OAUTH_BACKEND_URL = window.location.origin; // Uses same domain as frontend
         let oauthClient = null;
         
         // Initialize OAuth client
         try {
             console.log('Initializing OAuth client with backend:', OAUTH_BACKEND_URL);
-            oauthClient = new WikipediaOAuthClient(OAUTH_BACKEND_URL);
+            oauthClient = new WikipediaOAuthClient(OAUTH_BACKEND_URL + '/api');
             
             // Add debug functionality
             window.debugOAuth = async function() {
@@ -1011,7 +1012,7 @@
                 // Test backend connectivity
                 try {
                     console.log('Testing backend connectivity...');
-                    const response = await fetch(OAUTH_BACKEND_URL);
+                    const response = await fetch(OAUTH_BACKEND_URL + '/api');
                     console.log('Backend response status:', response.status);
                     
                     if (response.ok) {
@@ -1028,7 +1029,7 @@
                 // Test login endpoint specifically
                 try {
                     console.log('Testing /auth/login endpoint...');
-                    const loginResponse = await fetch(`${OAUTH_BACKEND_URL}/auth/login`);
+                    const loginResponse = await fetch(`${OAUTH_BACKEND_URL}/api/auth/login`);
                     console.log('Login endpoint status:', loginResponse.status);
                     
                     const loginText = await loginResponse.text();
