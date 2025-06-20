@@ -81,18 +81,54 @@ module.exports = async (req, res) => {
         console.log('OAuth callback successful for user:', user.name);
         
         // Redirect back to frontend with success
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const redirectUrl = `${frontendUrl}?oauth_success=true&session=${sessionId}`;
+        // Since we're in a popup window, we'll use JavaScript to close it
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authorization Complete</title>
+            </head>
+            <body>
+                <h2>Authorization successful!</h2>
+                <p>You can close this window.</p>
+                <script>
+                    // Try to close the window
+                    setTimeout(() => {
+                        window.close();
+                    }, 1000);
+                </script>
+            </body>
+            </html>
+        `;
         
-        res.redirect(302, redirectUrl);
+        res.setHeader('Content-Type', 'text/html');
+        res.status(200).send(html);
         
     } catch (error) {
         console.error('OAuth callback error:', error);
         
-        // Redirect to frontend with error
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        const redirectUrl = `${frontendUrl}?oauth_error=${encodeURIComponent(error.message)}`;
+        // Show error in the popup window
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authorization Failed</title>
+            </head>
+            <body>
+                <h2>Authorization failed</h2>
+                <p>Error: ${error.message}</p>
+                <p>You can close this window and try again.</p>
+                <script>
+                    // Try to close the window after a delay
+                    setTimeout(() => {
+                        window.close();
+                    }, 3000);
+                </script>
+            </body>
+            </html>
+        `;
         
-        res.redirect(302, redirectUrl);
+        res.setHeader('Content-Type', 'text/html');
+        res.status(200).send(html);
     }
 }; 

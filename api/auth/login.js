@@ -23,9 +23,14 @@ module.exports = async (req, res) => {
     try {
         console.log('Starting OAuth flow');
         
-        // Use the registered callback URL for this OAuth application
+        // Get the base URL for callback
+        const protocol = req.headers['x-forwarded-proto'] || 'https';
+        const host = req.headers.host;
+        const baseUrl = `${protocol}://${host}`;
+        const callbackUrl = `${baseUrl}/api/auth/callback`;
+        
+        // Use the standard callback flow since the OAuth app is registered with a callback URL
         const useOob = false;
-        const callbackUrl = 'https://wikipedia-patrol.vercel.app/api/auth/callback';
         const oauthCallbackValue = callbackUrl;
 
         console.log('OAuth callback configuration:', {
@@ -75,7 +80,7 @@ module.exports = async (req, res) => {
             isOutOfBand: useOob,
             instructions: useOob ?
                 'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify-code endpoint.' :
-                'Visit the authUrl and authorize the application. You will be redirected back automatically.'
+                undefined
         });
         
     } catch (error) {
