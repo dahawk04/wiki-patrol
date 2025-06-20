@@ -45,11 +45,26 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         data
     });
 
+    // Clean the data to remove any URL-based parameters that shouldn't be in the signature
+    const cleanData = { ...data };
+    
+    // Remove 'title' parameter if present since it's part of the URL path, not a parameter to sign
+    if (cleanData.title) {
+        delete cleanData.title;
+    }
+
+    // For MediaWiki OAuth endpoints, we need to use the base URL without query parameters
+    // to prevent the oauth-1.0a library from auto-extracting query parameters for signing
+    let baseUrl = url;
+    if (url.includes('?')) {
+        baseUrl = url.split('?')[0];
+    }
+
     const requestData = {
-        url: url,
+        url: baseUrl,
         method: method,
         data: {
-            ...data,
+            ...cleanData,
             oauth_version: '1.0'
         }
     };
@@ -76,10 +91,11 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         // Wikipedia expects the body in application/x-www-form-urlencoded format
         // Modified by Cursor: ensure correct content type and encoding to avoid 400 errors
         axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        axiosConfig.data = new URLSearchParams(requestData.data).toString();
+        // Use the cleaned data (without title) for the actual POST body
+        axiosConfig.data = new URLSearchParams(cleanData).toString();
         console.log('POST data being sent:', axiosConfig.data);
     } else if (method === 'GET') {
-        axiosConfig.params = requestData.data;
+        axiosConfig.params = cleanData;
         console.log('GET params being sent:', axiosConfig.params);
     }
 
