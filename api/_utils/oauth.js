@@ -45,30 +45,17 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         data
     });
 
-    // For MediaWiki OAuth endpoints, we need to use the base URL without query parameters
-    // to prevent the oauth-1.0a library from auto-extracting query parameters for signing
-    let baseUrl = url;
-    let titleParam = null;
-    
-    if (url.includes('?')) {
-        const urlParts = url.split('?');
-        baseUrl = urlParts[0];
-        
-        // Extract title parameter from URL query string for MediaWiki routing
-        const queryParams = new URLSearchParams(urlParts[1]);
-        titleParam = queryParams.get('title');
-    }
+    // MediaWiki's OAuth endpoints rely on the *non-pretty* URL that still contains
+    // the "?title=Special:OAuth/..." query-string. Stripping that part results in a
+    // signature mismatch ("Invalid signature"). Keep the full URL when generating
+    // the OAuth base-string so that the server and client sign identical data.
 
-    // Clean the data to remove any URL-based parameters that shouldn't be in the signature
+    const baseUrl = url; // use the original URL, including any ?title= parameter
+
+    // Clean the data we explicitly pass for signing – do **not** remove the title
+    // parameter from the URL because MediaWiki requires it to be present in the
+    // signature base-string.
     const cleanData = { ...data };
-    
-    // Remove 'title' parameter if present since it's part of the URL path, not a parameter to sign
-    if (cleanData.title) {
-        delete cleanData.title;
-    }
-
-    // For MediaWiki, include title in POST body for routing (not in signature)
-    const postData = titleParam ? { ...cleanData, title: titleParam } : cleanData;
 
     const requestData = {
         url: baseUrl,
@@ -99,9 +86,7 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
 
     if (method === 'POST') {
         // Wikipedia expects the body in application/x-www-form-urlencoded format
-        // Modified by Cursor: ensure correct content type and encoding to avoid 400 errors
         axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        // For MediaWiki, don't include title in POST body since it's in the URL
         axiosConfig.data = new URLSearchParams(cleanData).toString();
         console.log('POST data being sent:', axiosConfig.data);
     } else if (method === 'GET') {
