@@ -23,22 +23,15 @@ module.exports = async (req, res) => {
     try {
         console.log('Starting OAuth flow');
         
-        // Get the base URL for callback
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
-        const host = req.headers.host;
-        const baseUrl = `${protocol}://${host}`;
-        const callbackUrl = `${baseUrl}/api/auth/callback`;
-        
-        console.log(`Using callback URL: ${callbackUrl}`);
-        
-        // Decide which callback style to use – standard redirect or out-of-band (verification code).
-        // If WIKIPEDIA_OAUTH_USE_OOB env var is "true" we force OOB, otherwise we send the actual callback URL registered with the consumer.
-        const useOob = process.env.WIKIPEDIA_OAUTH_USE_OOB === 'true';
-        const oauthCallbackValue = useOob ? 'oob' : callbackUrl;
+        // The Wikimedia OAuth flow requires "oob" (out-of-band) authentication.
+        // The user will receive a verification code to complete the process.
+        const useOob = true;
+        const oauthCallbackValue = 'oob';
 
         console.log('OAuth callback configuration:', {
             useOob,
             oauthCallbackValue,
+            // The registered callback URL is not used in OOB flow, but we log it for debugging.
             registeredCallback: 'https://wikipedia-patrol.vercel.app/api/auth/callback',
             consumerKey: process.env.WIKIPEDIA_CONSUMER_KEY?.trim()?.substring(0, 8) + '...'
         });
