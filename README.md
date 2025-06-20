@@ -1,6 +1,8 @@
-# Wikipedia Recent Changes Patrol Tool
+# Wikipedia Patrol Tool
 
-A comprehensive web-based tool for patrolling recent changes on Wikipedia, featuring real-time editing capabilities, ORES integration, and user-friendly keyboard shortcuts.
+A modern web application for efficiently patrolling recent changes on Wikipedia using OAuth authentication and AI-powered analysis.
+
+<!-- Last deployment trigger: 2024 -->
 
 ## Features
 
