@@ -31,6 +31,7 @@ console.log('OAuth configured with:', {
     hasConsumerKey: !!consumerKey,
     hasConsumerSecret: !!consumerSecret,
     consumerKeyLength: consumerKey?.length || 0,
+    consumerSecretLength: consumerSecret?.length || 0,
     consumerKeyPrefix: consumerKey?.substring(0, 6) || 'NOT_SET'
 });
 
