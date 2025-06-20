@@ -31,6 +31,8 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 20px;
+            display: block !important; /* Ensure header is always visible */
+            visibility: visible !important;
         }
 
         h1 {
@@ -2337,7 +2339,20 @@
             
             if (recentChanges.length === 0) {
                 console.log('No changes to display');
-                container.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">No changes found matching your criteria.</p>';
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <h3>No changes found matching your criteria</h3>
+                        <p>Try adjusting the filters above:</p>
+                        <ul style="text-align: left; display: inline-block; margin: 20px 0;">
+                            <li>Lower the ORES threshold (currently ${document.getElementById('oresThreshold').value})</li>
+                            <li>Change the namespace filter</li>
+                            <li>Wait a moment for new edits to appear</li>
+                        </ul>
+                        <button class="btn-primary" onclick="refreshChanges()" style="margin-top: 15px;">
+                            🔄 Refresh Changes
+                        </button>
+                    </div>
+                `;
                 return;
             }
             
