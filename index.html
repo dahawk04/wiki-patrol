@@ -1340,9 +1340,28 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             initOAuth(); // Initialize OAuth client first
+            setupEventListeners(); // Set up button event listeners
             // Don't initialize anything else until user is logged in
             checkInitialAuthStatus();
         });
+        
+        // Set up event listeners for login/logout buttons
+        function setupEventListeners() {
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            if (loginBtn) {
+                loginBtn.addEventListener('click', () => {
+                    initiateLogin();
+                });
+            }
+            
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', () => {
+                    logout();
+                });
+            }
+        }
 
         // Check initial auth status and show/hide overlay
         async function checkInitialAuthStatus() {
