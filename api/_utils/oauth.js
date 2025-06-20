@@ -23,7 +23,8 @@ const oauth = OAuth({
     signature_method: 'HMAC-SHA1',
     hash_function(base_string, key) {
         return crypto.createHmac('sha1', key).update(base_string).digest('base64');
-    }
+    },
+    version: '1.0'
 });
 
 // Log OAuth configuration (without secrets)
@@ -47,7 +48,10 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
     const requestData = {
         url: url,
         method: method,
-        data: data
+        data: {
+            ...data,
+            oauth_version: '1.0'
+        }
     };
 
     const oauthHeaders = oauth.toHeader(oauth.authorize(requestData, token));
@@ -66,9 +70,9 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         // Wikipedia expects the body in application/x-www-form-urlencoded format
         // Modified by Cursor: ensure correct content type and encoding to avoid 400 errors
         axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        axiosConfig.data = new URLSearchParams(data).toString();
+        axiosConfig.data = new URLSearchParams(requestData.data).toString();
     } else if (method === 'GET') {
-        axiosConfig.params = data;
+        axiosConfig.params = requestData.data;
     }
 
     try {

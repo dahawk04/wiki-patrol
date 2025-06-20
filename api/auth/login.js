@@ -53,9 +53,17 @@ module.exports = async (req, res) => {
             secret: params.get('oauth_token_secret')
         };
         
+        // Check for oauth_callback_confirmed as required by OAuth 1.0a
+        const callbackConfirmed = params.get('oauth_callback_confirmed');
+        
         if (!requestToken.key || !requestToken.secret) {
             console.error('Request token response:', response);
             throw new Error('Failed to get request token');
+        }
+        
+        if (callbackConfirmed !== 'true') {
+            console.error('OAuth callback not confirmed by service provider');
+            throw new Error('Service provider did not confirm OAuth callback (OAuth 1.0a requirement)');
         }
         
         // Generate session ID
@@ -70,8 +78,8 @@ module.exports = async (req, res) => {
         // Store reverse mapping for token lookup
         await sessions.setTokenMapping(requestToken.key, sessionId);
         
-        // Build authorization URL
-        const authUrl = `${ENDPOINTS.authorize}?oauth_token=${requestToken.key}&oauth_consumer_key=${process.env.WIKIPEDIA_CONSUMER_KEY}`;
+        // Build authorization URL - OAuth 1.0a only requires oauth_token parameter
+        const authUrl = `${ENDPOINTS.authorize}?oauth_token=${requestToken.key}`;
         
         console.log('OAuth flow started successfully');
         
