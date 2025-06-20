@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
         console.log(`Using callback URL: ${callbackUrl}`);
         
         // Get request token
-        const response = await makeOAuthRequest(ENDPOINTS.requestToken, 'POST', null, {
+        const response = await makeOAuthRequest(ENDPOINTS.requestToken, 'GET', null, {
             oauth_callback: callbackUrl
         });
         

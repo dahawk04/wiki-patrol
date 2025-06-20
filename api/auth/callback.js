@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
         }
         
         // Exchange for access token
-        const response = await makeOAuthRequest(ENDPOINTS.accessToken, 'POST', sessionData.requestToken, {
+        const response = await makeOAuthRequest(ENDPOINTS.accessToken, 'GET', sessionData.requestToken, {
             oauth_verifier
         });
         
