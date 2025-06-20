@@ -23,28 +23,32 @@ module.exports = async (req, res) => {
     try {
         console.log('Starting OAuth flow');
         
-        // Check if we should use callback URL or OOB based on environment
-        const isProduction = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
-        // Explicitly set the callback URL to remove any doubt about environment variables.
-        const callbackUrl = 'https://wikipedia-patrol.vercel.app/api/auth/callback';
-        
-        // Use callback URL for production, OOB for local development
-        const useOob = !isProduction && !process.env.FORCE_CALLBACK_URL;
-        const oauthCallbackValue = useOob ? 'oob' : callbackUrl;
+        // Force OOB (out-of-band) authentication since the Wikipedia OAuth app 
+        // is configured to only accept "oob" callbacks
+        const useOob = true;
+        const oauthCallbackValue = 'oob';
 
         console.log('OAuth callback configuration:', {
             useOob,
             oauthCallbackValue,
-            isProduction,
-            env: process.env.VERCEL_ENV || process.env.NODE_ENV,
-            registeredCallback: callbackUrl,
+            reason: 'Wikipedia OAuth app requires OOB authentication',
             consumerKey: process.env.WIKIPEDIA_CONSUMER_KEY?.trim()?.substring(0, 8) + '...'
         });
 
         // Get request token
+        console.log('Requesting OAuth token from:', ENDPOINTS.requestToken);
         const response = await makeOAuthRequest(ENDPOINTS.requestToken, 'POST', null, {
             oauth_callback: oauthCallbackValue
         });
+        
+        console.log('Raw request token response:', response);
+        console.log('Response type:', typeof response);
+        
+        // Check if response is an error message
+        if (typeof response === 'string' && response.includes('Error:')) {
+            console.error('OAuth service returned error:', response);
+            throw new Error(response);
+        }
         
         // Parse response (URL encoded)
         const params = new URLSearchParams(response);
@@ -53,12 +57,21 @@ module.exports = async (req, res) => {
             secret: params.get('oauth_token_secret')
         };
         
+        console.log('Parsed request token:', {
+            hasKey: !!requestToken.key,
+            hasSecret: !!requestToken.secret,
+            keyLength: requestToken.key?.length || 0,
+            secretLength: requestToken.secret?.length || 0
+        });
+        
         // Check for oauth_callback_confirmed as required by OAuth 1.0a
         const callbackConfirmed = params.get('oauth_callback_confirmed');
+        console.log('Callback confirmed:', callbackConfirmed);
         
         if (!requestToken.key || !requestToken.secret) {
             console.error('Request token response:', response);
-            throw new Error('Failed to get request token');
+            console.error('Parsed params:', Object.fromEntries(params.entries()));
+            throw new Error('Failed to get request token - missing oauth_token or oauth_token_secret');
         }
         
         if (callbackConfirmed !== 'true') {
@@ -88,13 +101,12 @@ module.exports = async (req, res) => {
             authUrl,
             sessionId,
             isOutOfBand: useOob,
-            instructions: useOob ?
-                'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify-code endpoint.' :
-                'Visit the authUrl to authorize the application. You will be redirected back automatically.'
+            instructions: 'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify-code endpoint.'
         });
         
     } catch (error) {
         console.error('OAuth login error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({
             success: false,
             error: error.message || 'Failed to start OAuth flow'

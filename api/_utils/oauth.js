@@ -54,7 +54,13 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         }
     };
 
-    const oauthHeaders = oauth.toHeader(oauth.authorize(requestData, token));
+    console.log('Request data before OAuth authorization:', requestData);
+
+    const oauthData = oauth.authorize(requestData, token);
+    console.log('OAuth authorization data:', oauthData);
+    
+    const oauthHeaders = oauth.toHeader(oauthData);
+    console.log('OAuth headers:', oauthHeaders);
 
     // Build axios config dynamically to ensure we always send the correct body/params format
     const axiosConfig = {
@@ -71,9 +77,19 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         // Modified by Cursor: ensure correct content type and encoding to avoid 400 errors
         axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
         axiosConfig.data = new URLSearchParams(requestData.data).toString();
+        console.log('POST data being sent:', axiosConfig.data);
     } else if (method === 'GET') {
         axiosConfig.params = requestData.data;
+        console.log('GET params being sent:', axiosConfig.params);
     }
+
+    console.log('Final axios config:', {
+        method: axiosConfig.method,
+        url: axiosConfig.url,
+        headers: axiosConfig.headers,
+        data: axiosConfig.data || 'none',
+        params: axiosConfig.params || 'none'
+    });
 
     try {
         const response = await axios(axiosConfig);
@@ -81,7 +97,10 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
         console.log('OAuth request successful:', {
             url,
             status: response.status,
-            dataLength: JSON.stringify(response.data).length
+            headers: response.headers,
+            dataType: typeof response.data,
+            dataLength: JSON.stringify(response.data).length,
+            dataPreview: typeof response.data === 'string' ? response.data.substring(0, 200) : JSON.stringify(response.data).substring(0, 200)
         });
         
         return response.data;
@@ -97,6 +116,11 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
             consumerKeyPresent: !!process.env.WIKIPEDIA_CONSUMER_KEY,
             consumerSecretPresent: !!process.env.WIKIPEDIA_CONSUMER_SECRET
         });
+        
+        // Log the full error response if it's HTML (likely an error page)
+        if (error.response?.data && typeof error.response.data === 'string' && error.response.data.includes('<html>')) {
+            console.error('HTML error response received:', error.response.data.substring(0, 500));
+        }
         
         // Provide more specific error message
         if (error.response?.status === 401) {
