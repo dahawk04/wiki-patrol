@@ -22,6 +22,14 @@ const oauth = OAuth({
     }
 });
 
+// Log OAuth configuration (without secrets)
+console.log('OAuth configured with:', {
+    hasConsumerKey: !!process.env.WIKIPEDIA_CONSUMER_KEY,
+    hasConsumerSecret: !!process.env.WIKIPEDIA_CONSUMER_SECRET,
+    consumerKeyLength: process.env.WIKIPEDIA_CONSUMER_KEY?.length || 0,
+    consumerKeyPrefix: process.env.WIKIPEDIA_CONSUMER_KEY?.substring(0, 6) || 'NOT_SET'
+});
+
 // Session storage (using a simple Map for now - in production use Redis/Database)
 const sessions = new Map();
 
@@ -66,8 +74,21 @@ async function makeOAuthRequest(url, method, token = null, data = {}) {
             url,
             error: error.message,
             response: error.response?.data,
-            status: error.response?.status
+            status: error.response?.status,
+            headers: error.response?.headers,
+            // Additional debug info
+            requestHeaders: headers,
+            consumerKeyPresent: !!process.env.WIKIPEDIA_CONSUMER_KEY,
+            consumerSecretPresent: !!process.env.WIKIPEDIA_CONSUMER_SECRET
         });
+        
+        // Provide more specific error message
+        if (error.response?.status === 401) {
+            throw new Error('OAuth authentication failed - check consumer key/secret');
+        } else if (error.response?.status === 400) {
+            throw new Error('Bad OAuth request - check callback URL configuration');
+        }
+        
         throw error;
     }
 }

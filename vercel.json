@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "",
+  "outputDirectory": ".",
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -10,11 +12,6 @@
     "api/**/*.js": {
       "maxDuration": 30
     }
-  },
-  "env": {
-    "WIKIPEDIA_CONSUMER_KEY": "@wikipedia-consumer-key",
-    "WIKIPEDIA_CONSUMER_SECRET": "@wikipedia-consumer-secret",
-    "FRONTEND_URL": "@frontend-url"
   },
   "headers": [
     {
