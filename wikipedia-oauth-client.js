@@ -99,41 +99,9 @@ class WikipediaOAuthClient {
                     // Show instructions to user
                     this.onOAuthVerificationNeeded(data.authUrl, data.sessionId);
                 } else {
-                    // Store session ID for when we return
-                    console.log('Storing session ID for callback:', data.sessionId);
-                    localStorage.setItem('wikipedia_oauth_session', data.sessionId);
-                    
-                    // Open authorization URL in new window for better UX
-                    console.log('Opening Wikipedia authorization in new window:', data.authUrl);
-                    const authWindow = window.open(data.authUrl, 'wikipedia_oauth', 'width=600,height=700');
-                    
-                    // Show waiting UI
-                    if (typeof showVerification === 'function') {
-                        showVerification();
-                    }
-                    
-                    // Poll for completion
-                    const pollInterval = setInterval(() => {
-                        try {
-                            if (authWindow.closed) {
-                                clearInterval(pollInterval);
-                                // Check if we now have a successful session
-                                this.verifySession().then(user => {
-                                    if (user) {
-                                        console.log('OAuth completed successfully');
-                                    } else {
-                                        console.log('OAuth window closed without completing');
-                                        if (typeof showLogin === 'function') {
-                                            showLogin();
-                                        }
-                                    }
-                                });
-                            }
-                        } catch (e) {
-                            // Window closed or inaccessible
-                            clearInterval(pollInterval);
-                        }
-                    }, 1000);
+                    // Redirect to Wikipedia for authorization
+                    console.log('Redirecting to Wikipedia authorization URL:', data.authUrl);
+                    window.location.href = data.authUrl;
                 }
             } else {
                 console.error('Login endpoint returned error:', data.error);

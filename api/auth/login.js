@@ -23,15 +23,10 @@ module.exports = async (req, res) => {
     try {
         console.log('Starting OAuth flow');
         
-        // Get the base URL for callback
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
-        const host = req.headers.host;
-        const baseUrl = `${protocol}://${host}`;
-        const callbackUrl = `${baseUrl}/api/auth/callback`;
-        
-        // Use the standard callback flow since the OAuth app is registered with a callback URL
-        const useOob = false;
-        const oauthCallbackValue = callbackUrl;
+        // The Wikimedia OAuth flow requires "oob" (out-of-band) authentication.
+        // The user will receive a verification code to complete the process.
+        const useOob = true;
+        const oauthCallbackValue = 'oob';
 
         console.log('OAuth callback configuration:', {
             useOob,
@@ -68,8 +63,8 @@ module.exports = async (req, res) => {
             createdAt: Date.now()
         });
         
-        // Build authorization URL (callback was already specified in the request token step)
-        const authUrl = `${ENDPOINTS.authorize}?oauth_token=${requestToken.key}`;
+        // Build authorization URL
+        const authUrl = `${ENDPOINTS.authorize}?oauth_token=${requestToken.key}&oauth_consumer_key=${process.env.WIKIPEDIA_CONSUMER_KEY}`;
         
         console.log('OAuth flow started successfully');
         
