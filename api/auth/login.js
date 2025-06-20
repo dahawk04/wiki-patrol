@@ -23,26 +23,43 @@ module.exports = async (req, res) => {
     try {
         console.log('Starting OAuth flow');
         
-        // Force OOB (out-of-band) authentication since the Wikipedia OAuth app 
-        // is configured to only accept "oob" callbacks
-        const useOob = true;
-        const oauthCallbackValue = 'oob';
+        // Determine OAuth callback based on environment and app configuration
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+        const frontendUrl = process.env.FRONTEND_URL || (isProduction ? 'https://wikipedia-patrol.vercel.app' : 'http://localhost:3000');
+        const registeredCallback = `${frontendUrl}/api/auth/callback`;
+        
+        // Try callback-based authentication first since the app seems configured for it
+        const useOob = false;
+        const oauthCallbackValue = registeredCallback;
 
         console.log('OAuth callback configuration:', {
             useOob,
             oauthCallbackValue,
-            reason: 'Wikipedia OAuth app requires OOB authentication',
+            isProduction,
+            env: process.env.NODE_ENV || process.env.VERCEL_ENV || 'development',
+            registeredCallback,
             consumerKey: process.env.WIKIPEDIA_CONSUMER_KEY?.trim()?.substring(0, 8) + '...'
         });
 
         // Get request token
-        console.log('Requesting OAuth token from:', ENDPOINTS.requestToken);
+        console.log('Making OAuth request:', {
+            url: ENDPOINTS.requestToken,
+            method: 'POST',
+            hasToken: false,
+            data: { oauth_callback: oauthCallbackValue }
+        });
+        
         const response = await makeOAuthRequest(ENDPOINTS.requestToken, 'POST', null, {
             oauth_callback: oauthCallbackValue
         });
         
-        console.log('Raw request token response:', response);
-        console.log('Response type:', typeof response);
+        console.log('OAuth request successful:', {
+            url: ENDPOINTS.requestToken,
+            status: 200,
+            dataLength: response?.length || 0
+        });
+        
+        console.log('Request token response:', response);
         
         // Check if response is an error message
         if (typeof response === 'string' && response.includes('Error:')) {
@@ -101,7 +118,9 @@ module.exports = async (req, res) => {
             authUrl,
             sessionId,
             isOutOfBand: useOob,
-            instructions: 'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify-code endpoint.'
+            instructions: useOob 
+                ? 'Visit the authUrl, authorize the application, and you will receive a verification code. Use this code with the /api/auth/verify-code endpoint.'
+                : 'Visit the authUrl and authorize the application. You will be redirected back to complete the login.'
         });
         
     } catch (error) {
